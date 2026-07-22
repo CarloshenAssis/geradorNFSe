@@ -22,11 +22,13 @@ const SANDBOX_ARGS = [
 
 const RENDER_TIMEOUT_MS = 15_000;
 
-async function resolveExecutablePath(): Promise<string> {
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    return process.env.PUPPETEER_EXECUTABLE_PATH;
-  }
+interface LaunchOptions {
+  executablePath: string;
+  args: string[];
+  headless: boolean | "shell";
+}
 
+async function resolveLaunchOptions(): Promise<LaunchOptions> {
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
     const packUrl = process.env.CHROMIUM_REMOTE_PACK_URL;
     if (!packUrl) {
@@ -36,7 +38,19 @@ async function resolveExecutablePath(): Promise<string> {
     }
     const chromiumModule = await import("@sparticuz/chromium-min");
     const chromium = chromiumModule.default;
-    return chromium.executablePath(packUrl);
+    return {
+      executablePath: await chromium.executablePath(packUrl),
+      args: chromium.args,
+      headless: "shell",
+    };
+  }
+
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    return {
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      args: SANDBOX_ARGS,
+      headless: true,
+    };
   }
 
   throw new PdfRenderError(
@@ -45,12 +59,12 @@ async function resolveExecutablePath(): Promise<string> {
 }
 
 export async function renderHtmlToPdf(html: string): Promise<Buffer> {
-  const executablePath = await resolveExecutablePath();
+  const { executablePath, args, headless } = await resolveLaunchOptions();
 
   const browser = await puppeteer.launch({
     executablePath,
-    args: SANDBOX_ARGS,
-    headless: true,
+    args,
+    headless,
   });
 
   try {
