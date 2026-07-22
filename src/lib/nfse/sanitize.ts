@@ -37,3 +37,29 @@ export function formatDataHora(iso: string | undefined): string {
   if (Number.isNaN(date.getTime())) return escapeHtml(iso);
   return date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
+
+export function formatDataHoraCompleta(iso: string | undefined): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return escapeHtml(iso);
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+export function formatData(iso: string | undefined): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return escapeHtml(iso);
+  return date.toLocaleDateString("pt-BR");
+}
+
+export function formatCep(cep: string | undefined): string {
+  if (!cep) return "";
+  return cep.replace(/^(\d{5})(\d{3})$/, "$1-$2");
+}

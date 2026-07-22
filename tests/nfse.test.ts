@@ -33,7 +33,7 @@ describe("validateNfse", () => {
     expect(nfse.NFSe.infNFSe.chaveAcesso).toBe("35260714200166000187550010000012341000012341");
     expect(nfse.NFSe.infNFSe.nNFSe).toBe("202600001234");
     expect(nfse.NFSe.infNFSe.DPS.infDPS.prest.CNPJ).toBe("14200166000187");
-    expect(nfse.NFSe.infNFSe.DPS.infDPS.toma.CNPJ).toBe("11222333000144");
+    expect(nfse.NFSe.infNFSe.DPS.infDPS.toma?.CNPJ).toBe("11222333000144");
     expect(nfse.NFSe.infNFSe.DPS.infDPS.valores.vServPrest.vServ).toBe(500);
     expect(nfse.NFSe.infNFSe.valores.vLiq).toBe(485);
   });
@@ -76,9 +76,39 @@ describe("renderDanfseHtml", () => {
     const nfse = validateNfse(raw);
     const html = renderDanfseHtml({ nfse, qrCodeDataUrl: "data:image/png;base64,AAAA" });
 
-    expect(html).toContain("DANFSe");
+    expect(html).toContain("DANFSe v2.0");
+    expect(html).toContain("Documento Auxiliar da NFS-e");
     expect(html).toContain(nfse.NFSe.infNFSe.chaveAcesso);
     expect(html).toContain("data:image/png;base64,AAAA");
+    // Blocos obrigatórios do Anexo I da NT 008/2026.
+    expect(html).toContain("Dados da NFS-e");
+    expect(html).toContain("Prestador / Fornecedor");
+    expect(html).toContain("Tributação IBS / CBS");
+    expect(html).toContain("Valor Total da NFS-e");
+    expect(html).toContain("Lei nº 12.741/2012");
+  });
+
+  it("suprime blocos não identificados com a frase-padrão (item 2.3)", () => {
+    const raw = parseNfseXml(fixtureXml) as {
+      NFSe: { infNFSe: { DPS: { infDPS: { toma?: unknown } } } };
+    };
+    delete raw.NFSe.infNFSe.DPS.infDPS.toma;
+    const nfse = validateNfse(raw);
+    const html = renderDanfseHtml({ nfse, qrCodeDataUrl: "data:image/png;base64,AAAA" });
+
+    expect(html).toContain("TOMADOR/ADQUIRENTE DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e");
+    expect(html).toContain("INTERMEDIÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e");
+  });
+
+  it("marca 'NFS-e SEM VALIDADE JURÍDICA' em homologação (tpAmb=2)", () => {
+    const raw = parseNfseXml(fixtureXml) as {
+      NFSe: { infNFSe: { DPS: { infDPS: { tpAmb: string } } } };
+    };
+    raw.NFSe.infNFSe.DPS.infDPS.tpAmb = "2";
+    const nfse = validateNfse(raw);
+    const html = renderDanfseHtml({ nfse, qrCodeDataUrl: "data:image/png;base64,AAAA" });
+
+    expect(html).toContain("NFS-e SEM VALIDADE JURÍDICA");
   });
 
   it("nunca injeta HTML cru vindo de campos textuais do XML", () => {
