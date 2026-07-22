@@ -1,5 +1,6 @@
 import type { NfseParsed } from "@/lib/nfse/schema";
 import { codigos } from "@/lib/nfse/codigos";
+import { getLogoNfseMarkup } from "@/lib/pdf/logo";
 import {
   escapeHtml,
   formatCep,
@@ -205,15 +206,7 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
 
     <!-- CABEÇALHO -->
     <div class="header">
-      <div class="logo">
-        <svg viewBox="0 0 130 40" width="100%" xmlns="http://www.w3.org/2000/svg">
-          <text x="0" y="27" font-family="Arial" font-size="20" font-weight="bold" fill="#0b7a3b">NFS</text>
-          <circle cx="52" cy="20" r="11" fill="#0b7a3b" />
-          <text x="52" y="26" font-family="Arial" font-size="15" font-weight="bold" fill="#fff" text-anchor="middle">e</text>
-          <text x="68" y="17" font-family="Arial" font-size="6.5" fill="#555">Nota Fiscal de</text>
-          <text x="68" y="26" font-family="Arial" font-size="6.5" fill="#555">Serviço eletrônica</text>
-        </svg>
-      </div>
+      <div class="logo">${getLogoNfseMarkup()}</div>
       <div class="titulo">
         <span class="t1">DANFSe v2.0</span>
         <span class="t2">Documento Auxiliar da NFS-e</span>
