@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse">
+  <infNFSe Id="NFS00001">
+    <xLocEmi>São José dos Campos</xLocEmi>
+    <xLocPrestacao>São José dos Campos</xLocPrestacao>
+    <nNFSe>202600001234</nNFSe>
+    <cLocIncid>3549904</cLocIncid>
+    <xLocIncid>São José dos Campos</xLocIncid>
+    <dhProc>2026-07-22T10:15:00-03:00</dhProc>
+    <verAplic>1.02</verAplic>
+    <ambGer>1</ambGer>
+    <tpEmis>1</tpEmis>
+    <procEmi>1</procEmi>
+    <cStat>100</cStat>
+    <chaveAcesso>35260714200166000187550010000012341000012341</chaveAcesso>
+    <valores>
+      <vISSQN>15.00</vISSQN>
+      <vTotalRet>0.00</vTotalRet>
+      <vLiq>485.00</vLiq>
+    </valores>
+    <DPS xmlns="http://www.sped.fazenda.gov.br/dps">
+      <infDPS Id="DPS35260714200166000187000010000012341000012341">
+        <tpAmb>1</tpAmb>
+        <dhEmi>2026-07-22T09:50:00-03:00</dhEmi>
+        <verAplic>1.02</verAplic>
+        <serie>00001</serie>
+        <nDPS>1234</nDPS>
+        <dCompet>2026-07-22</dCompet>
+        <tpEmit>1</tpEmit>
+        <cLocEmi>3549904</cLocEmi>
+        <prest>
+          <CNPJ>14200166000187</CNPJ>
+          <xNome>CARLOS TECNOLOGIA E CONTABILIDADE LTDA</xNome>
+          <fone>12988887777</fone>
+          <email>contato@exemplo.com.br</email>
+        </prest>
+        <toma>
+          <CNPJ>11222333000144</CNPJ>
+          <xNome>CLIENTE EXEMPLO SERVICOS LTDA</xNome>
+          <end>
+            <xLgr>Rua das Industrias</xLgr>
+            <nro>500</nro>
+            <xBairro>Jardim Aquarius</xBairro>
+            <cMun>3549904</cMun>
+            <xMun>São José dos Campos</xMun>
+            <UF>SP</UF>
+            <CEP>12246000</CEP>
+          </end>
+        </toma>
+        <serv>
+          <cServ>
+            <cTribNac>010701</cTribNac>
+            <xDescServ>Desenvolvimento de sistemas sob encomenda</xDescServ>
+          </cServ>
+          <xDiscr>Servicos de desenvolvimento e manutencao de software conforme contrato mensal</xDiscr>
+        </serv>
+        <valores>
+          <vServPrest>
+            <vServ>500.00</vServ>
+          </vServPrest>
+          <trib>
+            <tribMun>
+              <tribISSQN>1</tribISSQN>
+              <pAliq>3.00</pAliq>
+            </tribMun>
+            <tribFed>
+              <piscofins>
+                <CST>01</CST>
+              </piscofins>
+            </tribFed>
+            <totTrib>
+              <indTotTrib>1</indTotTrib>
+              <pTotTribSN>6.50</pTotTribSN>
+            </totTrib>
+            <IBSCBS>
+              <CST>200</CST>
+              <cClassTrib>200001</cClassTrib>
+              <gIBSCBS>
+                <vBC>500.00</vBC>
+                <gIBSUF>
+                  <pIBSUF>0.10</pIBSUF>
+                  <vIBSUF>0.50</vIBSUF>
+                </gIBSUF>
+                <gIBSMun>
+                  <pIBSMun>0.10</pIBSMun>
+                  <vIBSMun>0.50</vIBSMun>
+                </gIBSMun>
+                <gCBS>
+                  <pCBS>0.90</pCBS>
+                  <vCBS>4.50</vCBS>
+                </gCBS>
+              </gIBSCBS>
+            </IBSCBS>
+          </trib>
+        </valores>
+      </infDPS>
+    </DPS>
+  </infNFSe>
+</NFSe>
