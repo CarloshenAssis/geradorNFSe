@@ -18,11 +18,17 @@ export interface DanfseTemplateInput {
 
 /**
  * Monta o HTML do DANFSe conforme o leiaute oficial da NT 008/2026 (SE/
- * CGNFS-e), Anexo I — Modelo de DANFSe. Regras seguidas:
- *  - blocos e ordem exatos do Anexo I;
+ * CGNFS-e), Anexo I — Modelo de DANFSe.
+ *
+ * Regra estrutural do modelo: os campos DENTRO de cada bloco não têm linhas
+ * divisórias entre si; as linhas divisórias (0,5pt) existem apenas ENTRE os
+ * blocos. O título de cada bloco é uma célula em destaque no início da
+ * primeira linha do bloco.
+ *
+ * Demais regras:
  *  - campos sem informação no XML impressos com "-" (Nota 12);
  *  - blocos de Tomador/Intermediário/ISSQN suprimidos com a frase-padrão
- *    quando não identificados (item 2.3 / Notas 2 e 4);
+ *    quando não identificados/aplicáveis (item 2.3, Notas 2 e 4);
  *  - cabeçalho com logo NFS-e, "DANFSe v2.0", município/ambiente do emitente
  *    e QR Code de consulta pública oficial (item 2.4.3);
  *  - TODO campo do XML é escapado antes de entrar no HTML (item 2.5 do MD).
@@ -30,13 +36,11 @@ export interface DanfseTemplateInput {
 
 const TRACO = "-";
 
-/** Valor escapado, ou "-" quando vazio (Nota 12). */
 function ou(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") return TRACO;
   return escapeHtml(value);
 }
 
-/** R$ formatado, ou "-" quando o valor não existe no XML. */
 function moedaOu(value: number | null | undefined): string {
   if (value === null || value === undefined) return TRACO;
   return `R$ ${formatMoeda(value)}`;
@@ -47,13 +51,20 @@ function pctOu(value: number | null | undefined): string {
   return `${formatMoeda(value)}%`;
 }
 
+/** Célula de campo: rótulo em cima, valor embaixo. `flex` = quantas colunas ocupa. */
+function campo(label: string, valor: string, flex = 1): string {
+  return `<div class="c" style="flex:${flex}"><span class="lbl">${label}</span><span class="val">${valor}</span></div>`;
+}
+
+/** Célula de campo com rótulo em destaque (caixa alta), p/ valores totais. */
+function campoB(label: string, valor: string, flex = 1): string {
+  return `<div class="c" style="flex:${flex}"><span class="lbl lbl-b">${label}</span><span class="val">${valor}</span></div>`;
+}
+
 function enderecoLinha(end?: {
   xLgr: string;
   nro: string;
   xBairro: string;
-  xMun: string;
-  UF: string;
-  CEP: string;
 }): string {
   if (!end) return TRACO;
   const partes = [end.xLgr, end.nro, end.xBairro].filter(Boolean);
@@ -63,6 +74,11 @@ function enderecoLinha(end?: {
 function municipioUf(xMun?: string, uf?: string): string {
   if (!xMun && !uf) return TRACO;
   return `${escapeHtml(xMun ?? "")}${uf ? ` / ${escapeHtml(uf)}` : ""}`;
+}
+
+function ibgeCep(cMun?: string, cep?: string): string {
+  if (!cMun && !cep) return TRACO;
+  return `${escapeHtml(cMun ?? "")}${cep ? ` / ${escapeHtml(formatCep(cep))}` : ""}`;
 }
 
 export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemplateInput): string {
@@ -81,7 +97,6 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
 
   const semValidadeJuridica = infDPS.tpAmb === "2";
 
-  // Valores IBS/CBS derivados (o exemplo traz os grupos, não os totais).
   const vIBSUF = g?.gIBSUF?.vIBSUF;
   const vIBSMun = g?.gIBSMun?.vIBSMun;
   const vCBS = g?.gCBS?.vCBS;
@@ -92,7 +107,6 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
   const vLiqMaisIbsCbs =
     totalIbsCbs !== undefined ? valoresNfse.vLiq + totalIbsCbs : valoresNfse.vLiq;
 
-  // Totais Aproximados dos Tributos (Nota 10 — linha obrigatória).
   const tot = trib?.totTrib;
   function totAproxSphere(v?: number, p?: number): string {
     if (v !== undefined) return `R$ ${formatMoeda(v)}`;
@@ -113,6 +127,8 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
   const tomadorIdentificado = Boolean(toma);
   const issqnAplicavel = Boolean(tribMun);
 
+  const emitenteUf = prest.end?.UF;
+
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -128,58 +144,58 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
     line-height: 1.15;
   }
   .doc { width: 100%; position: relative; }
-  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  td { border: 0.5pt solid #000; padding: 1.5pt 3pt; vertical-align: top; overflow: hidden; }
-  .bloco-titulo td {
-    font-family: Arial, sans-serif;
-    font-weight: bold;
-    font-size: 7pt;
-    text-transform: uppercase;
-    background: #f0f0f0;
-    padding: 2pt 3pt;
-  }
-  .label {
-    font-family: Arial, sans-serif;
-    font-weight: bold;
-    font-size: 6pt;
-    display: block;
-    margin-bottom: 0.5pt;
-  }
-  .val { font-size: 7pt; display: block; word-wrap: break-word; }
-  .no-border-top td { border-top: none; }
-  .header { display: flex; align-items: stretch; border: 0.5pt solid #000; margin-bottom: -0.5pt; }
-  .header .logo { width: 22%; padding: 4pt; display: flex; align-items: center; border-right: 0.5pt solid #000; }
+
+  /* CABEÇALHO */
+  .header { display: flex; align-items: stretch; border: 0.5pt solid #000; }
+  .header .logo { width: 22%; padding: 5pt 6pt; display: flex; align-items: center; border-right: 0.5pt solid #000; }
   .header .titulo {
-    flex: 1;
-    text-align: center;
-    padding: 4pt;
-    border-right: 0.5pt solid #000;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    flex: 1; text-align: center; padding: 5pt; border-right: 0.5pt solid #000;
+    display: flex; flex-direction: column; justify-content: center;
   }
-  .header .titulo .t1 { font-family: Arial, sans-serif; font-weight: bold; font-size: 9pt; }
-  .header .titulo .t2 { font-family: Arial, sans-serif; font-weight: bold; font-size: 9pt; }
+  .header .titulo .t1, .header .titulo .t2 { font-family: Arial, sans-serif; font-weight: bold; font-size: 9pt; }
   .header .titulo .sv { font-family: Arial, sans-serif; font-weight: bold; font-size: 9pt; color: #e10000; margin-top: 2pt; }
-  .header .emit { width: 27%; padding: 4pt; font-size: 6pt; }
-  .header .emit .mun { font-size: 8pt; margin-bottom: 1pt; }
-  .header .qr { width: 20%; padding: 3pt; text-align: center; border-left: 0.5pt solid #000; }
-  .header .qr img { width: 1.9cm; height: 1.9cm; }
-  .header .qr .cmpl { font-size: 5.5pt; margin-top: 1pt; line-height: 1.05; }
+  .header .emit { width: 27%; padding: 5pt 6pt; font-size: 6pt; line-height: 1.4; }
+  .header .emit .mun { font-size: 7pt; }
+
+  /* CORPO — caixa única; blocos separados só por linha horizontal */
+  .corpo { border: 0.5pt solid #000; border-top: none; }
+  .bloco { border-top: 0.5pt solid #000; }
+  .bloco:first-child { border-top: none; }
+  .linha { display: flex; }
+  .c { flex: 1; padding: 1.5pt 5pt; overflow: hidden; }
+  .lbl { font-family: Arial, sans-serif; font-weight: bold; font-size: 6pt; display: block; margin-bottom: 0.5pt; }
+  .lbl-b { font-size: 7pt; text-transform: uppercase; }
+  .lbl-id { font-family: Arial, sans-serif; font-weight: bold; font-size: 7pt; text-transform: uppercase; display: block; margin-bottom: 1pt; }
+  .val { font-size: 7pt; display: block; word-wrap: break-word; }
   .chave { font-size: 8pt; letter-spacing: 0.5pt; word-break: break-all; }
-  .descserv { min-height: 34pt; }
-  .infocompl { min-height: 60pt; }
+
+  /* Título de bloco: célula em destaque no início da 1ª linha */
+  .tt {
+    font-family: Arial, sans-serif; font-weight: bold; font-size: 7pt; text-transform: uppercase;
+    background: #e6e6e6; padding: 2.5pt 5pt; display: flex; align-items: center;
+  }
+  /* Título de bloco em barra cheia (blocos sem campos na linha do título) */
+  .tt-full {
+    font-family: Arial, sans-serif; font-weight: bold; font-size: 7pt; text-transform: uppercase;
+    background: #e6e6e6; padding: 2.5pt 5pt;
+  }
+
+  /* DADOS DA NFS-e (com QR à direita) */
+  .ident { display: flex; }
+  .ident .campos { flex: 1; }
+  .ident .qr { width: 22%; padding: 4pt; text-align: center; border-left: 0.5pt solid #000; display: flex; flex-direction: column; align-items: center; }
+  .ident .qr img { width: 2.0cm; height: 2.0cm; }
+  .ident .qr .cmpl { font-size: 5.5pt; margin-top: 2pt; line-height: 1.1; text-align: center; }
+
+  .descserv .val { min-height: 30pt; }
+  .infocompl .val { min-height: 44pt; }
+  .canhoto .c { min-height: 26pt; }
+
   .marca {
-    position: absolute;
-    top: 42%;
-    left: 50%;
+    position: absolute; top: 42%; left: 50%;
     transform: translate(-50%, -50%) rotate(-45deg);
-    font-family: Arial, sans-serif;
-    font-size: 50pt;
-    color: rgba(0, 0, 0, 0.22);
-    z-index: 10;
-    pointer-events: none;
-    white-space: nowrap;
+    font-family: Arial, sans-serif; font-size: 50pt; color: rgba(0, 0, 0, 0.22);
+    z-index: 10; pointer-events: none; white-space: nowrap;
   }
 </style>
 </head>
@@ -190,12 +206,12 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
     <!-- CABEÇALHO -->
     <div class="header">
       <div class="logo">
-        <svg viewBox="0 0 120 40" width="100%" xmlns="http://www.w3.org/2000/svg">
-          <rect x="0" y="6" width="30" height="28" rx="4" fill="#1a7a3c" />
-          <text x="15" y="26" font-family="Arial" font-size="15" font-weight="bold" fill="#fff" text-anchor="middle">NF</text>
-          <text x="38" y="20" font-family="Arial" font-size="16" font-weight="bold" fill="#1a7a3c">NFS-e</text>
-          <text x="38" y="31" font-family="Arial" font-size="6.5" fill="#333">Nota Fiscal de</text>
-          <text x="38" y="38" font-family="Arial" font-size="6.5" fill="#333">Serviço eletrônica</text>
+        <svg viewBox="0 0 130 40" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <text x="0" y="27" font-family="Arial" font-size="20" font-weight="bold" fill="#0b7a3b">NFS</text>
+          <circle cx="52" cy="20" r="11" fill="#0b7a3b" />
+          <text x="52" y="26" font-family="Arial" font-size="15" font-weight="bold" fill="#fff" text-anchor="middle">e</text>
+          <text x="68" y="17" font-family="Arial" font-size="6.5" fill="#555">Nota Fiscal de</text>
+          <text x="68" y="26" font-family="Arial" font-size="6.5" fill="#555">Serviço eletrônica</text>
         </svg>
       </div>
       <div class="titulo">
@@ -204,193 +220,233 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
         ${semValidadeJuridica ? `<span class="sv">NFS-e SEM VALIDADE JURÍDICA</span>` : ""}
       </div>
       <div class="emit">
-        <div class="mun">${ou(infNFSe.xLocEmi)}</div>
+        <div class="mun">Município: ${ou(municipioUf(infNFSe.xLocEmi, emitenteUf))}</div>
         <div>Ambiente Gerador: ${ou(codigos.ambGer(infNFSe.ambGer))}</div>
         <div>Tipo de Ambiente: ${ou(codigos.tpAmb(infDPS.tpAmb))}</div>
       </div>
-      <div class="qr">
-        <img src="${qrCodeDataUrl}" alt="QR Code" />
-        <div class="cmpl">A autenticidade desta NFS-e pode ser verificada pela leitura deste código QR ou pela consulta da chave de acesso no portal nacional da NFS-e.</div>
-      </div>
     </div>
 
-    <!-- DADOS DA NFS-e -->
-    <table>
-      <tr class="bloco-titulo"><td colspan="3">Dados da NFS-e</td></tr>
-      <tr>
-        <td colspan="3"><span class="label">CHAVE DE ACESSO DA NFS-e</span><span class="val chave">${ou(infNFSe.chaveAcesso)}</span></td>
-      </tr>
-      <tr>
-        <td style="width:33.34%"><span class="label">NÚMERO DA NFS-e</span><span class="val">${ou(infNFSe.nNFSe)}</span></td>
-        <td style="width:33.33%"><span class="label">COMPETÊNCIA DA NFS-e</span><span class="val">${ou(formatData(infDPS.dCompet))}</span></td>
-        <td style="width:33.33%"><span class="label">DATA E HORA DA EMISSÃO DA NFS-e</span><span class="val">${ou(formatDataHoraCompleta(infNFSe.dhProc))}</span></td>
-      </tr>
-      <tr>
-        <td><span class="label">NÚMERO DA DPS</span><span class="val">${ou(infDPS.nDPS)}</span></td>
-        <td><span class="label">SÉRIE DA DPS</span><span class="val">${ou(infDPS.serie)}</span></td>
-        <td><span class="label">DATA E HORA DA EMISSÃO DA DPS</span><span class="val">${ou(formatDataHoraCompleta(infDPS.dhEmi))}</span></td>
-      </tr>
-      <tr>
-        <td><span class="label">EMITENTE DA NFS-e</span><span class="val">${ou(codigos.tpEmit(infDPS.tpEmit))}</span></td>
-        <td><span class="label">SITUAÇÃO DA NFS-e</span><span class="val">${ou(codigos.cStat(infNFSe.cStat))}</span></td>
-        <td><span class="label">FINALIDADE</span><span class="val">${ou(codigos.finNFSe(infDPS.finNFSe))}</span></td>
-      </tr>
-    </table>
+    <div class="corpo">
+      <!-- DADOS DA NFS-e (sem divisões internas; QR à direita) -->
+      <div class="bloco">
+        <div class="ident">
+          <div class="campos">
+            <div class="linha">
+              <div class="c"><span class="lbl-id">Chave de Acesso da NFS-e</span><span class="val chave">${ou(infNFSe.chaveAcesso)}</span></div>
+            </div>
+            <div class="linha">
+              <div class="c"><span class="lbl-id">Número da NFS-e</span><span class="val">${ou(infNFSe.nNFSe)}</span></div>
+              <div class="c"><span class="lbl-id">Competência da NFS-e</span><span class="val">${ou(formatData(infDPS.dCompet))}</span></div>
+              <div class="c"><span class="lbl-id">Data e Hora da Emissão da NFS-e</span><span class="val">${ou(formatDataHoraCompleta(infNFSe.dhProc))}</span></div>
+            </div>
+            <div class="linha">
+              <div class="c"><span class="lbl-id">Número da DPS</span><span class="val">${ou(infDPS.nDPS)}</span></div>
+              <div class="c"><span class="lbl-id">Série da DPS</span><span class="val">${ou(infDPS.serie)}</span></div>
+              <div class="c"><span class="lbl-id">Data e Hora da Emissão da DPS</span><span class="val">${ou(formatDataHoraCompleta(infDPS.dhEmi))}</span></div>
+            </div>
+            <div class="linha">
+              <div class="c"><span class="lbl-id">Emitente da NFS-e</span><span class="val">${ou(codigos.tpEmit(infDPS.tpEmit))}</span></div>
+              <div class="c"><span class="lbl-id">Situação da NFS-e</span><span class="val">${ou(codigos.cStat(infNFSe.cStat))}</span></div>
+              <div class="c"><span class="lbl-id">Finalidade</span><span class="val">${ou(codigos.finNFSe(infDPS.finNFSe))}</span></div>
+            </div>
+          </div>
+          <div class="qr">
+            <img src="${qrCodeDataUrl}" alt="QR Code" />
+            <div class="cmpl">A autenticidade desta NFS-e pode ser verificada pela leitura deste código QR ou pela consulta da chave de acesso no portal nacional da NFS-e.</div>
+          </div>
+        </div>
+      </div>
 
-    <!-- PRESTADOR / FORNECEDOR -->
-    <table class="no-border-top">
-      <tr class="bloco-titulo"><td colspan="3">Prestador / Fornecedor da NFS-e</td></tr>
-      <tr>
-        <td style="width:33.34%"><span class="label">CNPJ / CPF / NIF</span><span class="val">${ou(formatCnpjOuCpf(prest.CNPJ ?? prest.CPF))}</span></td>
-        <td style="width:33.33%"><span class="label">Inscrição Municipal</span><span class="val">${ou(prest.IM)}</span></td>
-        <td style="width:33.33%"><span class="label">Telefone</span><span class="val">${ou(prest.fone)}</span></td>
-      </tr>
-      <tr>
-        <td colspan="2"><span class="label">Nome / Nome Empresarial</span><span class="val">${ou(prest.xNome)}</span></td>
-        <td><span class="label">Município / UF</span><span class="val">${municipioUf(prest.end?.xMun, prest.end?.UF)}</span></td>
-      </tr>
-      <tr>
-        <td colspan="2"><span class="label">Endereço</span><span class="val">${enderecoLinha(prest.end)}</span></td>
-        <td><span class="label">CEP</span><span class="val">${ou(formatCep(prest.end?.CEP))}</span></td>
-      </tr>
-      <tr>
-        <td colspan="2"><span class="label">E-mail</span><span class="val">${ou(prest.email)}</span></td>
-        <td><span class="label">Simples Nacional na Data de Competência</span><span class="val">${ou(codigos.opSimpNac(prest.regTrib?.opSimpNac))}</span></td>
-      </tr>
-      <tr>
-        <td colspan="3"><span class="label">Regime de Apuração Tributária pelo SN</span><span class="val">${ou(codigos.regApTribSN(prest.regTrib?.regApTribSN))}</span></td>
-      </tr>
-    </table>
+      <!-- PRESTADOR / FORNECEDOR -->
+      <div class="bloco">
+        <div class="linha">
+          <div class="tt" style="flex:1">Prestador / Fornecedor</div>
+          ${campo("CNPJ / CPF / NIF", ou(formatCnpjOuCpf(prest.CNPJ ?? prest.CPF)))}
+          ${campo("Indicador Municipal (Inscrição)", ou(prest.IM))}
+          ${campo("Telefone", ou(prest.fone))}
+        </div>
+        <div class="linha">
+          ${campo("Nome / Nome Empresarial", ou(prest.xNome), 2)}
+          ${campo("Município / Sigla UF", municipioUf(prest.end?.xMun, prest.end?.UF))}
+          ${campo("Código IBGE / CEP", ibgeCep(prest.end?.cMun, prest.end?.CEP))}
+        </div>
+        <div class="linha">
+          ${campo("Endereço", enderecoLinha(prest.end), 2)}
+          ${campo("E-mail", ou(prest.email), 2)}
+        </div>
+        <div class="linha">
+          ${campo("Simples Nacional na Data de Competência", ou(codigos.opSimpNac(prest.regTrib?.opSimpNac)), 2)}
+          ${campo("Regime de Apuração Tributária pelo SN", ou(codigos.regApTribSN(prest.regTrib?.regApTribSN)), 2)}
+        </div>
+      </div>
 
-    <!-- TOMADOR / ADQUIRENTE -->
-    <table class="no-border-top">
-      <tr class="bloco-titulo"><td colspan="3">Tomador / Adquirente da Operação</td></tr>
-      ${
-        tomadorIdentificado
-          ? `<tr>
-        <td style="width:33.34%"><span class="label">CNPJ / CPF / NIF</span><span class="val">${ou(formatCnpjOuCpf(toma!.CNPJ ?? toma!.CPF))}</span></td>
-        <td style="width:33.33%"><span class="label">Inscrição Municipal</span><span class="val">${ou(toma!.IM)}</span></td>
-        <td style="width:33.33%"><span class="label">Telefone</span><span class="val">${ou(toma!.fone)}</span></td>
-      </tr>
-      <tr>
-        <td colspan="2"><span class="label">Nome / Nome Empresarial</span><span class="val">${ou(toma!.xNome)}</span></td>
-        <td><span class="label">Município / UF</span><span class="val">${municipioUf(toma!.end?.xMun, toma!.end?.UF)}</span></td>
-      </tr>
-      <tr>
-        <td colspan="2"><span class="label">Endereço</span><span class="val">${enderecoLinha(toma!.end)}</span></td>
-        <td><span class="label">CEP</span><span class="val">${ou(formatCep(toma!.end?.CEP))}</span></td>
-      </tr>
-      <tr>
-        <td colspan="3"><span class="label">E-mail</span><span class="val">${ou(toma!.email)}</span></td>
-      </tr>`
-          : `<tr><td colspan="3"><span class="val">TOMADOR/ADQUIRENTE DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e</span></td></tr>`
-      }
-    </table>
+      <!-- TOMADOR / ADQUIRENTE -->
+      <div class="bloco">
+        ${
+          tomadorIdentificado
+            ? `<div class="linha">
+          <div class="tt" style="flex:1">Tomador / Adquirente</div>
+          ${campo("CNPJ / CPF / NIF", ou(formatCnpjOuCpf(toma!.CNPJ ?? toma!.CPF)))}
+          ${campo("Indicador Municipal (Inscrição)", ou(toma!.IM))}
+          ${campo("Telefone", ou(toma!.fone))}
+        </div>
+        <div class="linha">
+          ${campo("Nome / Nome Empresarial", ou(toma!.xNome), 2)}
+          ${campo("Município / Sigla UF", municipioUf(toma!.end?.xMun, toma!.end?.UF))}
+          ${campo("Código IBGE / CEP", ibgeCep(toma!.end?.cMun, toma!.end?.CEP))}
+        </div>
+        <div class="linha">
+          ${campo("Endereço", enderecoLinha(toma!.end), 2)}
+          ${campo("E-mail", ou(toma!.email), 2)}
+        </div>`
+            : `<div class="linha"><div class="tt" style="flex:1">Tomador / Adquirente</div><div class="c" style="flex:3"><span class="val">TOMADOR/ADQUIRENTE DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e</span></div></div>`
+        }
+      </div>
 
-    <!-- INTERMEDIÁRIO (não presente no leiaute simplificado) -->
-    <table class="no-border-top">
-      <tr class="bloco-titulo"><td>Intermediário da Operação</td></tr>
-      <tr><td><span class="val">INTERMEDIÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e</span></td></tr>
-    </table>
+      <!-- DESTINATÁRIO DA OPERAÇÃO -->
+      <div class="bloco">
+        <div class="linha"><div class="tt" style="flex:1">Destinatário da Operação</div><div class="c" style="flex:3"><span class="val">${
+          tomadorIdentificado
+            ? "O DESTINATÁRIO É O PRÓPRIO TOMADOR/ADQUIRENTE DA OPERAÇÃO"
+            : "DESTINATÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e"
+        }</span></div></div>
+      </div>
 
-    <!-- SERVIÇO PRESTADO -->
-    <table class="no-border-top">
-      <tr class="bloco-titulo"><td colspan="3">Serviço Prestado</td></tr>
-      <tr>
-        <td style="width:33.34%"><span class="label">Código de Tributação Nacional / Municipal</span><span class="val">${ou(
-          serv.cServ.cTribMun ? `${serv.cServ.cTribNac} / ${serv.cServ.cTribMun}` : serv.cServ.cTribNac
-        )}</span></td>
-        <td style="width:33.33%"><span class="label">Código da NBS</span><span class="val">${ou(serv.cServ.cNBS)}</span></td>
-        <td style="width:33.33%"><span class="label">Local da Prestação / UF / País</span><span class="val">${ou(infNFSe.xLocPrestacao)}</span></td>
-      </tr>
-      <tr>
-        <td colspan="3"><span class="val">${ou(serv.cServ.xTribMun || serv.cServ.xTribNac)}</span></td>
-      </tr>
-      <tr>
-        <td colspan="3" class="descserv"><span class="label">Descrição do Serviço</span><span class="val">${ou(serv.cServ.xDescServ)}${
-          serv.xDiscr ? `<br/>${escapeHtml(serv.xDiscr)}` : ""
-        }</span></td>
-      </tr>
-    </table>
+      <!-- INTERMEDIÁRIO -->
+      <div class="bloco">
+        <div class="linha"><div class="tt" style="flex:1">Intermediário da Operação</div><div class="c" style="flex:3"><span class="val">INTERMEDIÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e</span></div></div>
+      </div>
 
-    <!-- TRIBUTAÇÃO MUNICIPAL (ISSQN) -->
-    <table class="no-border-top">
-      <tr class="bloco-titulo"><td colspan="4">Tributação Municipal (ISSQN)</td></tr>
-      ${
-        issqnAplicavel
-          ? `<tr>
-        <td style="width:25%"><span class="label">Tipo de Tributação do ISSQN</span><span class="val">${ou(codigos.tribISSQN(tribMun!.tribISSQN))}</span></td>
-        <td style="width:25%"><span class="label">Município / UF de Incidência do ISSQN</span><span class="val">${ou(infNFSe.xLocIncid)}</span></td>
-        <td style="width:25%"><span class="label">BC ISSQN</span><span class="val">${moedaOu(valoresDps.vServPrest.vServ)}</span></td>
-        <td style="width:25%"><span class="label">Alíquota Aplicada</span><span class="val">${pctOu(tribMun!.pAliq)}</span></td>
-      </tr>
-      <tr>
-        <td><span class="label">Retenção do ISSQN</span><span class="val">${ou(codigos.tpRetISSQN(tribMun!.tpRetISSQN))}</span></td>
-        <td><span class="label">ISSQN Apurado</span><span class="val">${moedaOu(valoresNfse.vISSQN)}</span></td>
-        <td><span class="label">Total Deduções / Reduções</span><span class="val">${TRACO}</span></td>
-        <td><span class="label">Desconto Incondicionado</span><span class="val">${moedaOu(valoresDps.vDescCondIncond?.vDescIncond)}</span></td>
-      </tr>`
-          : `<tr><td colspan="4"><span class="val">TRIBUTAÇÃO MUNICIPAL (ISSQN) - OPERAÇÃO NÃO SUJEITA AO ISSQN</span></td></tr>`
-      }
-    </table>
+      <!-- SERVIÇO PRESTADO -->
+      <div class="bloco">
+        <div class="linha">
+          <div class="tt" style="flex:1">Serviço Prestado</div>
+          ${campo(
+            "Código de Tributação Nacional / Municipal",
+            ou(serv.cServ.cTribMun ? `${serv.cServ.cTribNac} / ${serv.cServ.cTribMun}` : serv.cServ.cTribNac)
+          )}
+          ${campo("Código da NBS", ou(serv.cServ.cNBS))}
+          ${campo("Local da Prestação / Sigla UF / País", ou(infNFSe.xLocPrestacao))}
+        </div>
+        <div class="linha">
+          <div class="c" style="flex:1"><span class="val">${ou(serv.cServ.xTribMun || serv.cServ.xTribNac)}</span></div>
+        </div>
+        <div class="linha descserv">
+          <div class="c" style="flex:1"><span class="lbl">Descrição do Serviço</span><span class="val">${ou(serv.cServ.xDescServ)}${
+            serv.xDiscr ? `<br/>${escapeHtml(serv.xDiscr)}` : ""
+          }</span></div>
+        </div>
+      </div>
 
-    <!-- TRIBUTAÇÃO FEDERAL (EXCETO CBS) -->
-    <table class="no-border-top">
-      <tr class="bloco-titulo"><td colspan="3">Tributação Federal (Exceto CBS)</td></tr>
-      <tr>
-        <td style="width:33.34%"><span class="label">IRRF</span><span class="val">${moedaOu(tribFed?.vRetIRRF)}</span></td>
-        <td style="width:33.33%"><span class="label">Contribuição Previdenciária - Retida</span><span class="val">${moedaOu(tribFed?.vRetCP)}</span></td>
-        <td style="width:33.33%"><span class="label">Contribuições Sociais - Retidas</span><span class="val">${moedaOu(tribFed?.vRetCSLL)}</span></td>
-      </tr>
-      <tr>
-        <td><span class="label">PIS - Débito Apuração Própria</span><span class="val">${moedaOu(tribFed?.piscofins?.vPis)}</span></td>
-        <td><span class="label">COFINS - Débito Apuração Própria</span><span class="val">${moedaOu(tribFed?.piscofins?.vCofins)}</span></td>
-        <td><span class="label">Descrição Contrib. Sociais - Retidas</span><span class="val">${ou(tribFed?.piscofins?.tpRetPisCofins)}</span></td>
-      </tr>
-    </table>
+      <!-- TRIBUTAÇÃO MUNICIPAL (ISSQN) -->
+      <div class="bloco">
+        ${
+          issqnAplicavel
+            ? `<div class="linha">
+          <div class="tt" style="flex:1">Tributação Municipal (ISSQN)</div>
+          ${campo("Tipo de Tributação do ISSQN", ou(codigos.tribISSQN(tribMun!.tribISSQN)))}
+          ${campo("Município / Sigla UF / País de Incidência do ISSQN", ou(infNFSe.xLocIncid), 2)}
+        </div>
+        <div class="linha">
+          ${campo("Regime Especial de Tributação do ISSQN", TRACO)}
+          ${campo("Tipo de Imunidade do ISSQN", TRACO)}
+          ${campo("Suspensão da Exigibilidade do ISSQN", TRACO)}
+          ${campo("Número Processo Suspensão", TRACO)}
+        </div>
+        <div class="linha">
+          ${campo("Benefício Municipal", TRACO)}
+          ${campo("Cálculo do BM", TRACO)}
+          ${campo("Total Deduções / Reduções", TRACO)}
+          ${campo("Desconto Incondicionado", moedaOu(valoresDps.vDescCondIncond?.vDescIncond))}
+        </div>
+        <div class="linha">
+          ${campo("BC ISSQN", moedaOu(valoresDps.vServPrest.vServ))}
+          ${campo("Alíquota Aplicada", pctOu(tribMun!.pAliq))}
+          ${campo("Retenção do ISSQN", ou(codigos.tpRetISSQN(tribMun!.tpRetISSQN)))}
+          ${campo("ISSQN Apurado", moedaOu(valoresNfse.vISSQN))}
+        </div>`
+            : `<div class="linha"><div class="tt" style="flex:1">Tributação Municipal (ISSQN)</div><div class="c" style="flex:3"><span class="val">TRIBUTAÇÃO MUNICIPAL (ISSQN) - OPERAÇÃO NÃO SUJEITA AO ISSQN</span></div></div>`
+        }
+      </div>
 
-    <!-- TRIBUTAÇÃO IBS / CBS -->
-    <table class="no-border-top">
-      <tr class="bloco-titulo"><td colspan="4">Tributação IBS / CBS</td></tr>
-      <tr>
-        <td style="width:25%"><span class="label">CST / cClassTrib</span><span class="val">${ou(
-          ibscbs ? `${ibscbs.CST} / ${ibscbs.cClassTrib}` : undefined
-        )}</span></td>
-        <td style="width:25%"><span class="label">Base de Cálculo Após Exclusões e Reduções</span><span class="val">${moedaOu(g?.vBC)}</span></td>
-        <td style="width:25%"><span class="label">Alíquota IBS UF / IBS Mun</span><span class="val">${
-          g?.gIBSUF || g?.gIBSMun ? `${pctOu(g?.gIBSUF?.pIBSUF)} / ${pctOu(g?.gIBSMun?.pIBSMun)}` : TRACO
-        }</span></td>
-        <td style="width:25%"><span class="label">Alíquota CBS</span><span class="val">${pctOu(g?.gCBS?.pCBS)}</span></td>
-      </tr>
-      <tr>
-        <td><span class="label">Valor Apurado Estadual - IBS</span><span class="val">${moedaOu(vIBSUF)}</span></td>
-        <td><span class="label">Valor Apurado Municipal - IBS</span><span class="val">${moedaOu(vIBSMun)}</span></td>
-        <td><span class="label">Valor Total Apurado - IBS</span><span class="val">${moedaOu(vIBSTot)}</span></td>
-        <td><span class="label">Valor Total Apurado - CBS</span><span class="val">${moedaOu(vCBS)}</span></td>
-      </tr>
-    </table>
+      <!-- TRIBUTAÇÃO FEDERAL (EXCETO CBS) -->
+      <div class="bloco">
+        <div class="linha">
+          <div class="tt" style="flex:1">Tributação Federal (Exceto CBS)</div>
+          ${campo("IRRF", moedaOu(tribFed?.vRetIRRF))}
+          ${campo("Contribuição Previdenciária - Retida", moedaOu(tribFed?.vRetCP))}
+          ${campo("Contribuições Sociais - Retidas", moedaOu(tribFed?.vRetCSLL))}
+        </div>
+        <div class="linha">
+          ${campo("PIS - Débito Apuração Própria", moedaOu(tribFed?.piscofins?.vPis))}
+          ${campo("COFINS - Débito Apuração Própria", moedaOu(tribFed?.piscofins?.vCofins))}
+          ${campo("Descrição Contrib. Sociais - Retidas", ou(tribFed?.piscofins?.tpRetPisCofins), 2)}
+        </div>
+      </div>
 
-    <!-- VALOR TOTAL DA NFS-e -->
-    <table class="no-border-top">
-      <tr class="bloco-titulo"><td colspan="4">Valor Total da NFS-e</td></tr>
-      <tr>
-        <td style="width:25%"><span class="label">Valor da Operação / Serviço</span><span class="val">${moedaOu(valoresDps.vServPrest.vServ)}</span></td>
-        <td style="width:25%"><span class="label">Desconto Incondicionado</span><span class="val">${moedaOu(valoresDps.vDescCondIncond?.vDescIncond)}</span></td>
-        <td style="width:25%"><span class="label">Desconto Condicionado</span><span class="val">${moedaOu(valoresDps.vDescCondIncond?.vDescCond)}</span></td>
-        <td style="width:25%"><span class="label">Total das Retenções (ISSQN / Federais)</span><span class="val">${moedaOu(valoresNfse.vTotalRet)}</span></td>
-      </tr>
-      <tr>
-        <td><span class="label">Valor Líquido da NFS-e</span><span class="val">${moedaOu(valoresNfse.vLiq)}</span></td>
-        <td><span class="label">Total do IBS / CBS</span><span class="val">${moedaOu(totalIbsCbs)}</span></td>
-        <td colspan="2"><span class="label">Valor Líquido da NFS-e + IBS / CBS</span><span class="val">${moedaOu(vLiqMaisIbsCbs)}</span></td>
-      </tr>
-    </table>
+      <!-- TRIBUTAÇÃO IBS / CBS -->
+      <div class="bloco">
+        <div class="linha">
+          <div class="tt" style="flex:1">Tributação IBS / CBS</div>
+          ${campo("CST / cClassTrib", ou(ibscbs ? `${ibscbs.CST} / ${ibscbs.cClassTrib}` : undefined))}
+          ${campo("Indicador de Operação / Código IBGE Incidência / Município Incidência / Sigla UF", ou(infNFSe.xLocIncid), 2)}
+        </div>
+        <div class="linha">
+          ${campo("Exclusões e Reduções da Base de Cálculo", TRACO)}
+          ${campo("Base de Cálculo Após Exclusões e Reduções", moedaOu(g?.vBC))}
+          ${campo("Red. Alíquota IBS / Red. Alíquota CBS", TRACO)}
+          ${campo(
+            "Alíquota - IBS UF / IBS Mun",
+            g?.gIBSUF || g?.gIBSMun ? `${pctOu(g?.gIBSUF?.pIBSUF)} / ${pctOu(g?.gIBSMun?.pIBSMun)}` : TRACO
+          )}
+        </div>
+        <div class="linha">
+          ${campo("Alíq. Efetiva Municipal - IBS", pctOu(g?.gIBSMun?.pIBSMun))}
+          ${campo("Valor Apurado Municipal - IBS", moedaOu(vIBSMun))}
+          ${campo("Alíq. Efetiva Estadual - IBS", pctOu(g?.gIBSUF?.pIBSUF))}
+          ${campo("Valor Apurado Estadual - IBS", moedaOu(vIBSUF))}
+        </div>
+        <div class="linha">
+          ${campo("Valor Total Apurado - IBS", moedaOu(vIBSTot))}
+          ${campo("Alíquota - CBS", pctOu(g?.gCBS?.pCBS))}
+          ${campo("Alíquota Efetiva - CBS", pctOu(g?.gCBS?.pCBS))}
+          ${campo("Valor Total Apurado - CBS", moedaOu(vCBS))}
+        </div>
+      </div>
 
-    <!-- INFORMAÇÕES COMPLEMENTARES -->
-    <table class="no-border-top">
-      <tr class="bloco-titulo"><td>Informações Complementares</td></tr>
-      <tr><td class="infocompl"><span class="val">${infoComplementares}</span></td></tr>
-    </table>
+      <!-- VALOR TOTAL DA NFS-e -->
+      <div class="bloco">
+        <div class="linha">
+          <div class="tt" style="flex:1">Valor Total da NFS-e</div>
+          ${campoB("Valor da Operação / Serviço", moedaOu(valoresDps.vServPrest.vServ))}
+          ${campo("Desconto Incondicionado", moedaOu(valoresDps.vDescCondIncond?.vDescIncond))}
+          ${campo("Desconto Condicionado", moedaOu(valoresDps.vDescCondIncond?.vDescCond))}
+        </div>
+        <div class="linha">
+          ${campo("Total das Retenções (ISSQN / Federais)", moedaOu(valoresNfse.vTotalRet))}
+          ${campoB("Valor Líquido da NFS-e", moedaOu(valoresNfse.vLiq))}
+          ${campo("Total do IBS / CBS", moedaOu(totalIbsCbs))}
+          ${campoB("Valor Líquido da NFS-e + IBS/CBS", moedaOu(vLiqMaisIbsCbs))}
+        </div>
+      </div>
+
+      <!-- INFORMAÇÕES COMPLEMENTARES -->
+      <div class="bloco">
+        <div class="tt-full">Informações Complementares</div>
+        <div class="linha infocompl">
+          <div class="c" style="flex:1"><span class="val">${infoComplementares}</span></div>
+        </div>
+      </div>
+
+      <!-- CANHOTO (opcional) -->
+      <div class="bloco">
+        <div class="linha canhoto">
+          ${campoB("Data Cientificação", "&nbsp;")}
+          ${campoB("Identificação e Assinatura", "&nbsp;")}
+          <div class="c" style="flex:2"><span class="lbl lbl-b">Nº NFS-e / Chave NFS-e</span><span class="val chave">${ou(infNFSe.nNFSe)} / ${ou(infNFSe.chaveAcesso)}</span></div>
+        </div>
+      </div>
+    </div>
   </div>
 </body>
 </html>`;

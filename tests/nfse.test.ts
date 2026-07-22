@@ -81,8 +81,9 @@ describe("renderDanfseHtml", () => {
     expect(html).toContain(nfse.NFSe.infNFSe.chaveAcesso);
     expect(html).toContain("data:image/png;base64,AAAA");
     // Blocos obrigatórios do Anexo I da NT 008/2026.
-    expect(html).toContain("Dados da NFS-e");
+    expect(html).toContain("Chave de Acesso da NFS-e");
     expect(html).toContain("Prestador / Fornecedor");
+    expect(html).toContain("Destinatário da Operação");
     expect(html).toContain("Tributação IBS / CBS");
     expect(html).toContain("Valor Total da NFS-e");
     expect(html).toContain("Lei nº 12.741/2012");
