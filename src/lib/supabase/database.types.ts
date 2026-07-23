@@ -8,7 +8,7 @@ export type DanfseStatus = "pendente" | "processando" | "concluido" | "erro";
 export type TransacaoTipo = "assinatura" | "credito_avulso";
 export type TransacaoStatus = "pendente" | "confirmado" | "falhou";
 export type LoteStatus = "pendente" | "processando" | "concluido" | "concluido_com_erros" | "falhou";
-export type LoteItemStatus = "pendente" | "processado" | "erro";
+export type LoteItemStatus = "pendente" | "processando" | "processado" | "erro";
 export type ExportTipo = "xlsx" | "csv" | "txt" | "zip_consolidado";
 export type ConferenciaStatus = "compativel" | "divergente" | "nao_verificavel";
 

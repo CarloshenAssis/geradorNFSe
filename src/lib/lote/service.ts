@@ -196,6 +196,7 @@ async function processarItem(
       .update({
         cliente_id: clienteId,
         status: "processado",
+        erro_detalhe: null,
         danfse_pdf_storage_ref: pdfPath,
         danfse_generation_id: generationId,
         nome_arquivo_padronizado: `${nomeBase}.pdf`,
@@ -240,6 +241,24 @@ export async function processarProximoChunk(
 
   for (const item of pendentes ?? []) {
     if (Date.now() - inicio > ORCAMENTO_TEMPO_MS) break;
+
+    // Reivindicação atômica: o polling de status pode disparar chamadas
+    // concorrentes a este mesmo chunk (dupla renderização, retry de rede,
+    // múltiplas abas). Sem isso, duas chamadas processavam o MESMO item
+    // em paralelo — DANFSe gerado (e crédito debitado) em duplicata, e um
+    // resultado podendo sobrescrever o outro com um erro transitório
+    // (ex: "spawn ETXTBSY" de dois Chromium disputando o mesmo binário).
+    // O UPDATE ... WHERE status='pendente' é serializado por linha no
+    // Postgres — só uma chamada concorrente consegue reivindicar o item.
+    const { data: claimed } = await supabase
+      .from("lote_item")
+      .update({ status: "processando" })
+      .eq("id", item.id)
+      .eq("status", "pendente")
+      .select("id")
+      .maybeSingle();
+
+    if (!claimed) continue; // outra chamada já reivindicou este item
 
     try {
       await processarItem(supabase, ctx, item);
