@@ -1,12 +1,17 @@
 "use client";
 
-import { useCallback, useRef, useState, type DragEvent, type FormEvent } from "react";
-import Link from "next/link";
-import { Logo } from "@/components/Logo";
+import { useCallback, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { AppShell } from "@/components/AppShell";
 
 interface ResultadoGeracao {
   generationId: string;
   signedUrl: string;
+}
+
+interface ClienteOpcao {
+  id: string;
+  cnpj: string;
+  razao_social: string | null;
 }
 
 export default function DanfsePage() {
@@ -16,6 +21,15 @@ export default function DanfsePage() {
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [resultado, setResultado] = useState<ResultadoGeracao | null>(null);
+  const [clientes, setClientes] = useState<ClienteOpcao[]>([]);
+  const [clienteId, setClienteId] = useState("");
+
+  useEffect(() => {
+    fetch("/api/clientes")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setClientes(data?.clientes ?? []))
+      .catch(() => null);
+  }, []);
 
   function selecionarArquivo(file: File | undefined) {
     if (!file) return;
@@ -42,6 +56,7 @@ export default function DanfsePage() {
 
     const formData = new FormData();
     formData.set("xml", arquivo);
+    if (clienteId) formData.set("clienteId", clienteId);
 
     setCarregando(true);
     try {
@@ -62,28 +77,11 @@ export default function DanfsePage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-6 py-4">
-          <Logo />
-          <div className="flex items-center gap-3">
-            <Link href="/lotes" className="text-xs font-medium text-slate-500 hover:text-slate-700">
-              Processamento em lote
-            </Link>
-            <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
-              Gerador de DANFSe
-            </span>
-          </div>
-        </div>
-      </header>
+    <AppShell active="danfse" title="Gerador de DANFSe" subtitle="Documento auxiliar unitário a partir de um XML de NFS-e">
+      <div className="mx-auto max-w-2xl">
+        <p className="text-sm text-slate-500">Envie o XML da NFS-e (layout NT 008/2026) para gerar o PDF do documento auxiliar.</p>
 
-      <div className="mx-auto max-w-2xl px-6 py-10">
-        <h1 className="text-2xl font-semibold text-slate-900">Gerar DANFSe</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Envie o XML da NFS-e (layout NT 008/2026) para gerar o PDF do documento auxiliar.
-        </p>
-
-        <form onSubmit={handleSubmit} className="mt-8">
+        <form onSubmit={handleSubmit} className="mt-6">
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -131,6 +129,22 @@ export default function DanfsePage() {
               className="hidden"
               onChange={(e) => selecionarArquivo(e.target.files?.[0])}
             />
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-slate-700">Cliente (opcional)</label>
+            <select
+              value={clienteId}
+              onChange={(e) => setClienteId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            >
+              <option value="">Uso avulso (sem associar a um cliente)</option>
+              {clientes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.razao_social ?? c.cnpj}
+                </option>
+              ))}
+            </select>
           </div>
 
           <button
@@ -186,6 +200,6 @@ export default function DanfsePage() {
           </div>
         )}
       </div>
-    </main>
+    </AppShell>
   );
 }

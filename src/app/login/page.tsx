@@ -33,7 +33,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/danfse");
+      router.push("/dashboard");
       router.refresh();
     } finally {
       setCarregando(false);

@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
-import Link from "next/link";
-import { Logo } from "@/components/Logo";
+import { AppShell } from "@/components/AppShell";
 
 interface LoteResumo {
   id: string;
@@ -127,7 +126,7 @@ export default function LotesPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setErro(data.error || "Falha ao processar o lote.");
+        setErro(data.detalhe ? `${data.error}: ${data.detalhe}` : data.error || "Falha ao processar o lote.");
         return;
       }
 
@@ -142,24 +141,9 @@ export default function LotesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Logo />
-          <div className="flex items-center gap-3">
-            <Link href="/danfse" className="text-xs font-medium text-slate-500 hover:text-slate-700">
-              Gerador unitário
-            </Link>
-            <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
-              Central de Processamento Fiscal
-            </span>
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-4xl px-6 py-10">
-        <h1 className="text-2xl font-semibold text-slate-900">Processamento em Lote</h1>
-        <p className="mt-1 text-sm text-slate-500">
+    <AppShell active="lotes" title="Processamento em Lote" subtitle="Central de Processamento Fiscal">
+      <div className="mx-auto max-w-4xl">
+        <p className="text-sm text-slate-500">
           Envie um .zip com vários XMLs de NFS-e (opcionalmente com PDFs de referência homônimos para
           conferência) e receba os DANFSe organizados, exportações e um relatório consolidado.
         </p>
@@ -313,6 +297,6 @@ export default function LotesPage() {
           </div>
         </section>
       </div>
-    </main>
+    </AppShell>
   );
 }
