@@ -35,6 +35,18 @@ async function resolveLaunchOptions(): Promise<LaunchOptions> {
     // nenhuma URL externa (CHROMIUM_REMOTE_PACK_URL) que possa 404/403 ou
     // ficar dessincronizada da versão do npm. Isso elimina a fragilidade
     // que impedia a geração de PDF em produção.
+    // O @sparticuz/chromium só extrai as bibliotecas de sistema do AL2023
+    // (bin/al2023.tar.br — contém libnss3.so e afins, necessárias para o
+    // Chromium rodar) quando `isRunningInAwsLambdaNode20()` (na própria
+    // lib) retorna true, o que depende de AWS_EXECUTION_ENV/
+    // AWS_LAMBDA_JS_RUNTIME estarem no formato exato da AWS Lambda nativa.
+    // A Vercel roda sobre Lambda por baixo, mas não expõe essas variáveis
+    // nesse formato — então a extração nunca acontecia, mesmo com o
+    // arquivo presente no bundle (causa do "libnss3.so: cannot open
+    // shared object file"). Forçamos a detecção aqui, já que sabemos que
+    // estamos em ambiente serverless Node 20+ (runtime desta função).
+    process.env.AWS_LAMBDA_JS_RUNTIME ??= "nodejs20.x";
+
     const chromiumModule = await import("@sparticuz/chromium");
     const chromium = chromiumModule.default;
 
