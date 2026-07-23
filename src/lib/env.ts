@@ -52,6 +52,8 @@ export const env = {
     return Number(process.env.LOTE_RETENCAO_DIAS || 30);
   },
   get loteChunkSize() {
-    return Number(process.env.LOTE_CHUNK_SIZE || 25);
+    // Baixo por padrão: cada item roda um render Chromium completo, e o
+    // teto de duração de função no plano Hobby da Vercel é 60s.
+    return Number(process.env.LOTE_CHUNK_SIZE || 3);
   },
 };

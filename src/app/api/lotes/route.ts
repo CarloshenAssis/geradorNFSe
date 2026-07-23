@@ -1,12 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionContext } from "@/lib/auth/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { criarLote, processarProximoChunk, LoteError } from "@/lib/lote/service";
+import { criarLote, LoteError } from "@/lib/lote/service";
 import { logger } from "@/lib/observability/logger";
 import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+// O plano Hobby da Vercel ignora valores maiores e mata a função em 60s —
+// por isso esta rota só cria o lote (I/O rápido), sem renderizar PDF. O
+// processamento pesado roda em chunks pequenos via polling de GET /[id].
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const ctx = await getSessionContext();
@@ -26,11 +29,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const { loteId, ignorados } = await criarLote(supabase, ctx, zipBuffer);
-    // Processa o primeiro bloco já nesta requisição, dentro do orçamento de
-    // tempo — o restante (se houver) continua via polling do GET/[id] ou
-    // do job de cron de retomada (ver jobs/lote-processamento).
-    await processarProximoChunk(supabase, ctx, loteId);
-
+    // Não processa nada pesado aqui (render de PDF) — o frontend começa a
+    // consultar GET /api/lotes/[id] imediatamente após receber o loteId,
+    // e cada consulta avança um chunk pequeno (ver lib/lote/service.ts).
     return NextResponse.json({ loteId, ignorados }, { status: 201 });
   } catch (err) {
     if (err instanceof LoteError) {

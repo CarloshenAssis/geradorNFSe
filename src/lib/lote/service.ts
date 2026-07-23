@@ -111,7 +111,10 @@ export async function criarLote(
   return { loteId, ignorados: extracao.ignorados };
 }
 
-const ORCAMENTO_TEMPO_MS = 250_000; // margem sob o maxDuration=300s da rota
+// O plano Hobby da Vercel limita a duração de função serverless a 60s
+// (ignora `maxDuration` maior configurado na rota) — cada chunk precisa
+// terminar com folga sob esse teto, incluindo o cold start do Chromium.
+const ORCAMENTO_TEMPO_MS = 40_000;
 
 async function processarItem(
   supabase: SupabaseClient<Database>,

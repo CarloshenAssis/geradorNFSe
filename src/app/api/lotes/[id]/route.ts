@@ -6,7 +6,9 @@ import { createLoteSignedUrl } from "@/lib/lote/storage";
 import { logger } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+// Teto real no plano Hobby é 60s; processarProximoChunk respeita um
+// orçamento interno de tempo (ORCAMENTO_TEMPO_MS) bem abaixo disso.
+export const maxDuration = 60;
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   const ctx = await getSessionContext();
