@@ -37,10 +37,22 @@ export async function uploadLoteArquivo(
   conteudo: Buffer | Blob,
   contentType: string
 ): Promise<void> {
-  const { error } = await supabase.storage
-    .from(env.loteStorageBucket)
-    .upload(path, conteudo, { contentType, upsert: true });
-  if (error) throw error;
+  // Normaliza Buffer do Node para Blob: o cliente de storage do Supabase
+  // lida com Blob de forma consistente no runtime serverless; um Buffer cru
+  // pode, em algumas versões, gerar requisição malformada.
+  const corpo = conteudo instanceof Blob ? conteudo : new Blob([new Uint8Array(conteudo)], { type: contentType });
+  try {
+    const { error } = await supabase.storage
+      .from(env.loteStorageBucket)
+      .upload(path, corpo, { contentType, upsert: true });
+    if (error) throw error;
+  } catch (err) {
+    // O cliente de storage do Supabase lança SyntaxError quando a resposta
+    // é HTML (ex: página de erro de gateway) em vez de JSON. Reetiqueta com
+    // o bucket/caminho para o erro apontar exatamente onde falhou.
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`upload_storage_falhou [bucket=${env.loteStorageBucket} path=${path}]: ${msg}`);
+  }
 }
 
 export async function createLoteSignedUrl(

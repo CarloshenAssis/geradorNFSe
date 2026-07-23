@@ -32,10 +32,15 @@ export async function uploadPdf(
   path: string,
   pdf: Buffer
 ): Promise<void> {
-  const { error } = await supabase.storage.from(env.danfseStorageBucket).upload(path, pdf, {
-    contentType: "application/pdf",
-    upsert: false,
-  });
+  // Blob em vez de Buffer cru: mesma normalização do uploadXml, para o
+  // cliente de storage montar a requisição de forma consistente no
+  // runtime serverless da Vercel.
+  const { error } = await supabase.storage
+    .from(env.danfseStorageBucket)
+    .upload(path, new Blob([new Uint8Array(pdf)], { type: "application/pdf" }), {
+      contentType: "application/pdf",
+      upsert: false,
+    });
   if (error) throw error;
 }
 
