@@ -135,7 +135,7 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
 <head>
 <meta charset="utf-8" />
 <style>
-  @page { size: A4 portrait; margin: 6mm; }
+  @page { size: A4 portrait; margin: 3mm; }
   * { box-sizing: border-box; }
   body {
     font-family: "Microsoft Sans Serif", Arial, sans-serif;
@@ -173,12 +173,12 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
   /* Título de bloco: célula em destaque no início da 1ª linha */
   .tt {
     font-family: Arial, sans-serif; font-weight: bold; font-size: 7pt; text-transform: uppercase;
-    background: #e6e6e6; padding: 2.5pt 5pt; display: flex; align-items: center;
+    background: #f6f6f6; padding: 2.5pt 5pt; display: flex; align-items: center;
   }
   /* Título de bloco em barra cheia (blocos sem campos na linha do título) */
   .tt-full {
     font-family: Arial, sans-serif; font-weight: bold; font-size: 7pt; text-transform: uppercase;
-    background: #e6e6e6; padding: 2.5pt 5pt;
+    background: #f6f6f6; padding: 2.5pt 5pt;
   }
 
   /* DADOS DA NFS-e (com QR à direita) */
