@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionContext } from "@/lib/auth/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { processarProximoChunk, LoteError } from "@/lib/lote/service";
 import { createLoteSignedUrl } from "@/lib/lote/storage";
 import { logger } from "@/lib/observability/logger";
 
@@ -19,20 +18,25 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
   const supabase = await createSupabaseServerClient();
 
   try {
+    // Import dinâmico dentro do try (ver comentário equivalente em
+    // /api/lotes/route.ts): garante que uma falha de carregamento de
+    // qualquer dependência transitiva vira uma exceção capturável, não uma
+    // rota inteira quebrada sem chance de resposta em JSON.
+    const { processarProximoChunk } = await import("@/lib/lote/service");
     // Cada consulta de status avança o processamento em um bloco — é o
     // "worker cooperativo" descrito em lib/lote/service.ts.
     await processarProximoChunk(supabase, ctx, params.id);
   } catch (err) {
-    if (err instanceof LoteError && err.status === 404) {
-      return NextResponse.json({ error: "lote_nao_encontrado" }, { status: 404 });
-    }
+    const detalhe = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     logger.error("erro ao avançar processamento do lote", {
       modulo: "lote",
       loteId: params.id,
-      erro: err instanceof Error ? err.message : "desconhecido",
+      erro: detalhe,
+      stack: err instanceof Error ? err.stack : undefined,
     });
     // Não falha a consulta de status por causa de um erro pontual de
-    // avanço — o usuário ainda deve ver o estado atual do lote.
+    // avanço — o usuário ainda deve ver o estado atual do lote (a menos
+    // que o lote realmente não exista, tratado abaixo pela query direta).
   }
 
   const { data: lote, error: loteError } = await supabase

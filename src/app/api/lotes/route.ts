@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionContext } from "@/lib/auth/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { criarLote, LoteError } from "@/lib/lote/service";
 import { logger } from "@/lib/observability/logger";
 import { env } from "@/lib/env";
 
@@ -25,24 +24,38 @@ export async function POST(request: NextRequest) {
   }
 
   const zipBuffer = Buffer.from(await file.arrayBuffer());
-  const supabase = await createSupabaseServerClient();
 
   try {
+    const supabase = await createSupabaseServerClient();
+    // Import dinâmico dentro do try: se qualquer dependência transitiva do
+    // módulo de lote (jszip, exceljs, pdf-parse, puppeteer...) falhar ao
+    // carregar em runtime serverless, um `import` estático no topo do
+    // arquivo quebraria a rota inteira ANTES do handler rodar — sem chance
+    // de captura. Com import dinâmico, a falha vira uma exceção normal,
+    // capturada abaixo e devolvida como JSON com a causa real.
+    const { criarLote, LoteError } = await import("@/lib/lote/service");
+
     const { loteId, ignorados } = await criarLote(supabase, ctx, zipBuffer);
     // Não processa nada pesado aqui (render de PDF) — o frontend começa a
     // consultar GET /api/lotes/[id] imediatamente após receber o loteId,
     // e cada consulta avança um chunk pequeno (ver lib/lote/service.ts).
     return NextResponse.json({ loteId, ignorados }, { status: 201 });
   } catch (err) {
-    if (err instanceof LoteError) {
+    const { LoteError } = await import("@/lib/lote/service").catch(() => ({ LoteError: undefined }));
+    if (LoteError && err instanceof LoteError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
+    const detalhe = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     logger.error("erro inesperado ao criar lote", {
       modulo: "lote",
       escritorioId: ctx.escritorioId,
-      erro: err instanceof Error ? err.message : "desconhecido",
+      erro: detalhe,
+      stack: err instanceof Error ? err.stack : undefined,
     });
-    return NextResponse.json({ error: "erro_interno" }, { status: 500 });
+    // Inclui o detalhe do erro na resposta (ferramenta interna, ainda em
+    // ajuste fino) — facilita diagnosticar sem depender de acesso aos
+    // logs de runtime da Vercel.
+    return NextResponse.json({ error: "erro_interno", detalhe }, { status: 500 });
   }
 }
 
