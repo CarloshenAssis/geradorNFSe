@@ -62,14 +62,14 @@ export default function LotesPage() {
   const [detalhe, setDetalhe] = useState<LoteDetalhe | null>(null);
 
   const carregarLotes = useCallback(async () => {
-    const response = await fetch("/api/lotes");
+    const response = await fetch("/api/lotes", { cache: "no-store" });
     if (!response.ok) return;
     const data = await response.json();
     setLotes(data.lotes ?? []);
   }, []);
 
   const carregarDetalhe = useCallback(async (id: string) => {
-    const response = await fetch(`/api/lotes/${id}`);
+    const response = await fetch(`/api/lotes/${id}`, { cache: "no-store" });
     if (!response.ok) return;
     const data = await response.json();
     setDetalhe(data);

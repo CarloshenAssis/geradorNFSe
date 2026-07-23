@@ -287,7 +287,18 @@ export async function processarProximoChunk(
     return { finalizado: false };
   }
 
-  await finalizarLote(supabase, ctx, loteId);
+  try {
+    await finalizarLote(supabase, ctx, loteId);
+  } catch (err) {
+    // A finalização (exports/zip) falhou. Marca o lote como terminal com o
+    // detalhe do erro em vez de deixá-lo preso em "processando" e
+    // re-executando a finalização a cada consulta de status.
+    const detalhe = (err instanceof Error ? err.message : "erro_desconhecido").slice(0, 500);
+    await supabase
+      .from("lote_processamento")
+      .update({ status: "falhou", erro_detalhe: `falha_na_finalizacao: ${detalhe}`, finalizado_em: new Date().toISOString() })
+      .eq("id", loteId);
+  }
   return { finalizado: true };
 }
 
@@ -361,17 +372,25 @@ async function finalizarLote(supabase: SupabaseClient<Database>, ctx: SessionCon
 
   const resumo = calcularResumo(linhas);
 
-  const [xlsx, csv, txt, relatorioPdf] = await Promise.all([
-    gerarXlsx(linhas),
-    Promise.resolve(gerarCsv(linhas)),
-    Promise.resolve(gerarTxt(linhas)),
-    gerarRelatorioPdf(resumo, linhas),
-  ]);
+  // Exports que NÃO dependem do Chromium (XLSX/CSV/TXT) — nunca podem
+  // travar a finalização.
+  const xlsx = await gerarXlsx(linhas);
+  const csv = gerarCsv(linhas);
+  const txt = gerarTxt(linhas);
 
-  arquivosParaZip.push({ path: "relatorio_consolidado.pdf", conteudo: relatorioPdf });
   arquivosParaZip.push({ path: "exports/lote.xlsx", conteudo: xlsx });
   arquivosParaZip.push({ path: "exports/lote.csv", conteudo: csv });
   arquivosParaZip.push({ path: "exports/lote.txt", conteudo: txt });
+
+  // Relatório PDF é best-effort: se o render falhar, a finalização segue
+  // com os demais exports em vez de travar o lote em "processando".
+  let relatorioPdf: Buffer | null = null;
+  try {
+    relatorioPdf = await gerarRelatorioPdf(resumo, linhas);
+    arquivosParaZip.push({ path: "relatorio_consolidado.pdf", conteudo: relatorioPdf });
+  } catch {
+    relatorioPdf = null;
+  }
 
   const zipConsolidado = await gerarZipConsolidado(arquivosParaZip);
 
@@ -381,30 +400,42 @@ async function finalizarLote(supabase: SupabaseClient<Database>, ctx: SessionCon
   const relatorioPath = buildExportPath(ctx.escritorioId, loteId, "relatorio_consolidado.pdf");
   const zipPath = buildExportPath(ctx.escritorioId, loteId, "consolidado.zip");
 
-  await Promise.all([
+  const uploads = [
     uploadLoteArquivo(xlsxPath, xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
     uploadLoteArquivo(csvPath, csv, "text/csv"),
     uploadLoteArquivo(txtPath, txt, "text/plain"),
-    uploadLoteArquivo(relatorioPath, relatorioPdf, "application/pdf"),
     uploadLoteArquivo(zipPath, zipConsolidado, "application/zip"),
-  ]);
+  ];
+  if (relatorioPdf) {
+    uploads.push(uploadLoteArquivo(relatorioPath, relatorioPdf, "application/pdf"));
+  }
+  await Promise.all(uploads);
 
-  await supabase.from("export_gerado").insert([
+  // Idempotência: remove exports/relatório de uma finalização anterior que
+  // possa ter rodado parcialmente (evita linhas duplicadas se a finalização
+  // for reexecutada).
+  await supabase.from("export_gerado").delete().eq("lote_id", loteId);
+  await supabase.from("relatorio_consolidado").delete().eq("lote_id", loteId);
+
+  const exportRows: Array<{ lote_id: string; tipo: "xlsx" | "csv" | "txt" | "zip_consolidado"; storage_ref: string }> = [
     { lote_id: loteId, tipo: "xlsx", storage_ref: xlsxPath },
     { lote_id: loteId, tipo: "csv", storage_ref: csvPath },
     { lote_id: loteId, tipo: "txt", storage_ref: txtPath },
     { lote_id: loteId, tipo: "zip_consolidado", storage_ref: zipPath },
-  ]);
+  ];
+  await supabase.from("export_gerado").insert(exportRows);
 
-  await supabase.from("relatorio_consolidado").insert({
-    lote_id: loteId,
-    quantidade_notas: resumo.quantidadeNotas,
-    valor_total_servicos: resumo.valorTotalServicos,
-    valor_total_issqn: resumo.valorTotalIssqn,
-    valor_total_ibs: resumo.valorTotalIbs,
-    valor_total_cbs: resumo.valorTotalCbs,
-    storage_ref: relatorioPath,
-  });
+  if (relatorioPdf) {
+    await supabase.from("relatorio_consolidado").insert({
+      lote_id: loteId,
+      quantidade_notas: resumo.quantidadeNotas,
+      valor_total_servicos: resumo.valorTotalServicos,
+      valor_total_issqn: resumo.valorTotalIssqn,
+      valor_total_ibs: resumo.valorTotalIbs,
+      valor_total_cbs: resumo.valorTotalCbs,
+      storage_ref: relatorioPath,
+    });
+  }
 
   await supabase
     .from("lote_processamento")
