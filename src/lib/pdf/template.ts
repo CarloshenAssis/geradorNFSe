@@ -157,6 +157,10 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
 
   const tomadorIdentificado = Boolean(toma);
   const issqnAplicavel = Boolean(tribMun);
+  // Nota 6 (item 2.4.5): a linha de PIS/COFINS só é impressa para NFS-e com
+  // data de competência até o final do ano-calendário de 2026.
+  const competYear = infDPS.dCompet ? new Date(infDPS.dCompet).getFullYear() : undefined;
+  const exibirPisCofins = competYear === undefined || competYear <= 2026;
 
   const emitenteUf = prest.end?.UF;
   // UF de referência para os campos de local que não têm UF própria no XML
@@ -243,7 +247,7 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
   .marca {
     position: absolute; top: 42%; left: 50%;
     transform: translate(-50%, -50%) rotate(-45deg);
-    font-family: Arial, sans-serif; font-size: 50pt; color: rgba(0, 0, 0, 0.22);
+    font-family: Arial, sans-serif; font-size: 50pt; color: rgba(0, 0, 0, 0.35);
     z-index: 10; pointer-events: none; white-space: nowrap;
   }
 </style>
@@ -418,11 +422,15 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
           ${campo("Contribuição Previdenciária - Retida", moedaOu(tribFed?.vRetCP))}
           ${campo("Contribuições Sociais - Retidas", moedaOu(tribFed?.vRetCSLL))}
         </div>
-        <div class="linha">
+        ${
+          exibirPisCofins
+            ? `<div class="linha">
           ${campo("PIS - Débito Apuração Própria", moedaOu(tribFed?.piscofins?.vPis))}
           ${campo("COFINS - Débito Apuração Própria", moedaOu(tribFed?.piscofins?.vCofins))}
           ${campo("Descrição Contrib. Sociais - Retidas", ou(tribFed?.piscofins?.tpRetPisCofins), 2)}
-        </div>
+        </div>`
+            : ""
+        }
       </div>
 
       <!-- TRIBUTAÇÃO IBS / CBS -->
