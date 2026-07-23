@@ -62,6 +62,11 @@ function campoB(label: string, valor: string, flex = 1): string {
   return `<div class="c" style="flex:${flex}"><span class="lbl lbl-b">${label}</span><span class="val">${valor}</span></div>`;
 }
 
+/** Como campoB, mas com o sombreamento cinza 5% exigido pelo item 2.2.3. */
+function campoBS(label: string, valor: string, flex = 1): string {
+  return `<div class="c sombra" style="flex:${flex}"><span class="lbl lbl-b">${label}</span><span class="val">${valor}</span></div>`;
+}
+
 function enderecoLinha(end?: {
   xLgr: string;
   nro: string;
@@ -135,7 +140,8 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
 <head>
 <meta charset="utf-8" />
 <style>
-  @page { size: A4 portrait; margin: 3mm; }
+  /* Margem entre corpo e borda do formulário: 0,15–0,20cm (item 2.2.2). */
+  @page { size: A4 portrait; margin: 2mm; }
   * { box-sizing: border-box; }
   body {
     font-family: "Microsoft Sans Serif", Arial, sans-serif;
@@ -144,10 +150,11 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
     font-size: 7pt;
     line-height: 1.15;
   }
-  .doc { width: 100%; position: relative; }
+  /* Borda da página: 1pt; divisórias internas: 0,5pt (item 2.2.3). */
+  .doc { width: 100%; position: relative; border: 1pt solid #000; }
 
-  /* CABEÇALHO */
-  .header { display: flex; align-items: stretch; border: 0.5pt solid #000; }
+  /* CABEÇALHO — sombreado cinza 5% (item 2.2.3) */
+  .header { display: flex; align-items: stretch; background: #f2f2f2; }
   .header .logo { width: 22%; padding: 5pt 6pt; display: flex; align-items: center; border-right: 0.5pt solid #000; }
   .header .titulo {
     flex: 1; text-align: center; padding: 5pt; border-right: 0.5pt solid #000;
@@ -155,11 +162,12 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
   }
   .header .titulo .t1, .header .titulo .t2 { font-family: Arial, sans-serif; font-weight: bold; font-size: 9pt; }
   .header .titulo .sv { font-family: Arial, sans-serif; font-weight: bold; font-size: 9pt; color: #e10000; margin-top: 2pt; }
+  /* Canto direito do cabeçalho: município 8pt; ambiente 6pt (item 2.4.3). */
   .header .emit { width: 27%; padding: 5pt 6pt; font-size: 6pt; line-height: 1.4; }
-  .header .emit .mun { font-size: 7pt; }
+  .header .emit .mun { font-size: 8pt; }
 
-  /* CORPO — caixa única; blocos separados só por linha horizontal */
-  .corpo { border: 0.5pt solid #000; border-top: none; }
+  /* CORPO — caixa única; blocos separados só por linha horizontal 0,5pt */
+  .corpo { border-top: 0.5pt solid #000; }
   .bloco { border-top: 0.5pt solid #000; }
   .bloco:first-child { border-top: none; }
   .linha { display: flex; }
@@ -170,23 +178,27 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
   .val { font-size: 7pt; display: block; word-wrap: break-word; }
   .chave { font-size: 8pt; letter-spacing: 0.5pt; word-break: break-all; }
 
+  /* Sombreamento cinza claro 5% de densidade (item 2.2.3): títulos de
+     bloco, campo "Emitente da NFS-e" e "Valor Líquido da NFS-e + IBS/CBS". */
+  .sombra { background: #f2f2f2; }
+
   /* Título de bloco: célula em destaque no início da 1ª linha */
   .tt {
     font-family: Arial, sans-serif; font-weight: bold; font-size: 7pt; text-transform: uppercase;
-    background: #f6f6f6; padding: 2.5pt 5pt; display: flex; align-items: center;
+    background: #f2f2f2; padding: 2.5pt 5pt; display: flex; align-items: center;
   }
   /* Título de bloco em barra cheia (blocos sem campos na linha do título) */
   .tt-full {
     font-family: Arial, sans-serif; font-weight: bold; font-size: 7pt; text-transform: uppercase;
-    background: #f6f6f6; padding: 2.5pt 5pt;
+    background: #f2f2f2; padding: 2.5pt 5pt;
   }
 
-  /* DADOS DA NFS-e (com QR à direita) */
+  /* DADOS DA NFS-e (QR à direita, sem linha vertical separadora — Anexo I) */
   .ident { display: flex; }
   .ident .campos { flex: 1; }
-  .ident .qr { width: 22%; padding: 4pt; text-align: center; border-left: 0.5pt solid #000; display: flex; flex-direction: column; align-items: center; }
+  .ident .qr { width: 22%; padding: 4pt; text-align: center; display: flex; flex-direction: column; align-items: center; }
   .ident .qr img { width: 2.0cm; height: 2.0cm; }
-  .ident .qr .cmpl { font-size: 5.5pt; margin-top: 2pt; line-height: 1.1; text-align: center; }
+  .ident .qr .cmpl { font-size: 6pt; margin-top: 2pt; line-height: 1.15; text-align: center; }
 
   .descserv .val { min-height: 30pt; }
   .infocompl .val { min-height: 44pt; }
@@ -238,7 +250,7 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
               <div class="c"><span class="lbl-id">Data e Hora da Emissão da DPS</span><span class="val">${ou(formatDataHoraCompleta(infDPS.dhEmi))}</span></div>
             </div>
             <div class="linha">
-              <div class="c"><span class="lbl-id">Emitente da NFS-e</span><span class="val">${ou(codigos.tpEmit(infDPS.tpEmit))}</span></div>
+              <div class="c sombra"><span class="lbl-id">Emitente da NFS-e</span><span class="val">${ou(codigos.tpEmit(infDPS.tpEmit))}</span></div>
               <div class="c"><span class="lbl-id">Situação da NFS-e</span><span class="val">${ou(codigos.cStat(infNFSe.cStat))}</span></div>
               <div class="c"><span class="lbl-id">Finalidade</span><span class="val">${ou(codigos.finNFSe(infDPS.finNFSe))}</span></div>
             </div>
@@ -419,7 +431,7 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
           ${campo("Total das Retenções (ISSQN / Federais)", moedaOu(valoresNfse.vTotalRet))}
           ${campoB("Valor Líquido da NFS-e", moedaOu(valoresNfse.vLiq))}
           ${campo("Total do IBS / CBS", moedaOu(totalIbsCbs))}
-          ${campoB("Valor Líquido da NFS-e + IBS/CBS", moedaOu(vLiqMaisIbsCbs))}
+          ${campoBS("Valor Líquido da NFS-e + IBS/CBS", moedaOu(vLiqMaisIbsCbs))}
         </div>
       </div>
 
