@@ -7,6 +7,10 @@ export type CertificadoStatus = "ativo" | "expirado" | "revogado";
 export type DanfseStatus = "pendente" | "processando" | "concluido" | "erro";
 export type TransacaoTipo = "assinatura" | "credito_avulso";
 export type TransacaoStatus = "pendente" | "confirmado" | "falhou";
+export type LoteStatus = "pendente" | "processando" | "concluido" | "concluido_com_erros" | "falhou";
+export type LoteItemStatus = "pendente" | "processado" | "erro";
+export type ExportTipo = "xlsx" | "csv" | "txt" | "zip_consolidado";
+export type ConferenciaStatus = "compativel" | "divergente" | "nao_verificavel";
 
 export interface Database {
   public: {
@@ -208,6 +212,105 @@ export interface Database {
         };
         Insert: { email: string; ip: string; sucesso: boolean };
         Update: never;
+      };
+      lote_processamento: {
+        Row: {
+          id: string;
+          escritorio_id: string;
+          usuario_id: string;
+          status: LoteStatus;
+          quantidade_arquivos: number;
+          quantidade_processados: number;
+          quantidade_sucesso: number;
+          quantidade_erro: number;
+          origem_storage_ref: string;
+          expira_em: string;
+          erro_detalhe: string | null;
+          criado_em: string;
+          finalizado_em: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["lote_processamento"]["Row"]> & {
+          escritorio_id: string;
+          usuario_id: string;
+          status: LoteStatus;
+          origem_storage_ref: string;
+          expira_em: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lote_processamento"]["Row"]>;
+      };
+      lote_item: {
+        Row: {
+          id: string;
+          lote_id: string;
+          cliente_id: string | null;
+          nome_arquivo_original: string;
+          nome_arquivo_padronizado: string | null;
+          pasta_padronizada: string | null;
+          status: LoteItemStatus;
+          erro_detalhe: string | null;
+          xml_storage_ref: string | null;
+          pdf_referencia_storage_ref: string | null;
+          danfse_pdf_storage_ref: string | null;
+          danfse_generation_id: string | null;
+          criado_em: string;
+          processado_em: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["lote_item"]["Row"]> & {
+          lote_id: string;
+          nome_arquivo_original: string;
+          status: LoteItemStatus;
+        };
+        Update: Partial<Database["public"]["Tables"]["lote_item"]["Row"]>;
+      };
+      export_gerado: {
+        Row: {
+          id: string;
+          lote_id: string;
+          tipo: ExportTipo;
+          storage_ref: string;
+          criado_em: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["export_gerado"]["Row"]> & {
+          lote_id: string;
+          tipo: ExportTipo;
+          storage_ref: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["export_gerado"]["Row"]>;
+      };
+      relatorio_consolidado: {
+        Row: {
+          id: string;
+          lote_id: string;
+          quantidade_notas: number | null;
+          valor_total_servicos: number | null;
+          valor_total_issqn: number | null;
+          valor_total_ibs: number | null;
+          valor_total_cbs: number | null;
+          storage_ref: string;
+          criado_em: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["relatorio_consolidado"]["Row"]> & {
+          lote_id: string;
+          storage_ref: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["relatorio_consolidado"]["Row"]>;
+      };
+      conferencia_divergencia: {
+        Row: {
+          id: string;
+          lote_item_id: string;
+          campo: string;
+          valor_xml: string | null;
+          valor_pdf: string | null;
+          status: ConferenciaStatus;
+          criado_em: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["conferencia_divergencia"]["Row"]> & {
+          lote_item_id: string;
+          campo: string;
+          status: ConferenciaStatus;
+        };
+        Update: Partial<Database["public"]["Tables"]["conferencia_divergencia"]["Row"]>;
       };
     };
     Functions: {

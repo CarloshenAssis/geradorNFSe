@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, type DragEvent, type FormEvent } from "react";
+import Link from "next/link";
 import { Logo } from "@/components/Logo";
 
 interface ResultadoGeracao {
@@ -65,9 +66,14 @@ export default function DanfsePage() {
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-6 py-4">
           <Logo />
-          <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
-            Gerador de DANFSe
-          </span>
+          <div className="flex items-center gap-3">
+            <Link href="/lotes" className="text-xs font-medium text-slate-500 hover:text-slate-700">
+              Processamento em lote
+            </Link>
+            <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+              Gerador de DANFSe
+            </span>
+          </div>
         </div>
       </header>
 

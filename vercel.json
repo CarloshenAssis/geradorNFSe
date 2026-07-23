@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/jobs/nfe", "schedule": "0 5 * * *" },
-    { "path": "/api/jobs/monitor", "schedule": "0 6 * * *" }
+    { "path": "/api/jobs/monitor", "schedule": "0 6 * * *" },
+    { "path": "/api/jobs/lote-retencao", "schedule": "0 7 * * *" }
   ]
 }

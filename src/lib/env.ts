@@ -33,4 +33,25 @@ export const env = {
   get paymentGatewayWebhookSecret() {
     return process.env.PAYMENT_GATEWAY_WEBHOOK_SECRET || "";
   },
+  get loteStorageBucket() {
+    return process.env.LOTE_STORAGE_BUCKET || "lotes-files";
+  },
+  get loteSignedUrlTtlSeconds() {
+    return Number(process.env.LOTE_SIGNED_URL_TTL_SECONDS || 300);
+  },
+  get loteMaxArquivos() {
+    return Number(process.env.LOTE_MAX_ARQUIVOS || 200);
+  },
+  get loteMaxZipBytes() {
+    return Number(process.env.LOTE_MAX_ZIP_BYTES || 50 * 1024 * 1024);
+  },
+  get loteMaxDescompactadoBytes() {
+    return Number(process.env.LOTE_MAX_DESCOMPACTADO_BYTES || 500 * 1024 * 1024);
+  },
+  get loteRetencaoDias() {
+    return Number(process.env.LOTE_RETENCAO_DIAS || 30);
+  },
+  get loteChunkSize() {
+    return Number(process.env.LOTE_CHUNK_SIZE || 25);
+  },
 };
