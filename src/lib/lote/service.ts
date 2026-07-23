@@ -275,7 +275,7 @@ export async function processarProximoChunk(
     .from("lote_item")
     .select("id", { count: "exact", head: true })
     .eq("lote_id", loteId)
-    .neq("status", "pendente");
+    .in("status", ["processado", "erro"]);
   const { count: totalSucesso } = await supabase
     .from("lote_item")
     .select("id", { count: "exact", head: true })
@@ -296,11 +296,19 @@ export async function processarProximoChunk(
     })
     .eq("id", loteId);
 
+  // Considera tanto 'pendente' (ainda não pego por ninguém) quanto
+  // 'processando' (reivindicado por ESTA OU OUTRA chamada concorrente,
+  // ainda em andamento) como "não terminado". Checar só 'pendente' aqui
+  // permitia uma chamada concorrente finalizar o lote enquanto um item
+  // reivindicado por outra chamada ainda estava sendo processado de
+  // verdade — o snapshot da finalização pegava esse item pela metade
+  // (linha vazia no export, contado como erro) mesmo ele terminando com
+  // sucesso segundos depois.
   const { count: restantes } = await supabase
     .from("lote_item")
     .select("id", { count: "exact", head: true })
     .eq("lote_id", loteId)
-    .eq("status", "pendente");
+    .in("status", ["pendente", "processando"]);
 
   if ((restantes ?? 0) > 0) {
     return { finalizado: false };
