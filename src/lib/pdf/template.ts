@@ -82,9 +82,34 @@ function municipioUf(xMun?: string, uf?: string): string {
   return `${escapeHtml(xMun ?? "")}${uf ? ` / ${escapeHtml(uf)}` : ""}`;
 }
 
+/**
+ * Município / Sigla UF / País (item 2.4.5): concatena, por padrão, o país
+ * "BR" quando há município e nenhum país estrangeiro informado.
+ */
+function localCompleto(xMun?: string, uf?: string, pais = "BR"): string {
+  if (!xMun) return TRACO;
+  const partes = [escapeHtml(xMun)];
+  if (uf) partes.push(escapeHtml(uf));
+  if (pais) partes.push(escapeHtml(pais));
+  return partes.join(" / ");
+}
+
 function ibgeCep(cMun?: string, cep?: string): string {
   if (!cMun && !cep) return TRACO;
   return `${escapeHtml(cMun ?? "")}${cep ? ` / ${escapeHtml(formatCep(cep))}` : ""}`;
+}
+
+/**
+ * Código de Tributação Nacional / Municipal no formato nn.nn.nn / nnn
+ * (item 2.4.5). O cTribNac tem 6 dígitos → "nn.nn.nn"; se houver cTribMun,
+ * concatena " / " + cTribMun.
+ */
+function formatCodTrib(cTribNac?: string, cTribMun?: string): string {
+  if (!cTribNac) return TRACO;
+  const nac = /^\d{6}$/.test(cTribNac)
+    ? `${cTribNac.slice(0, 2)}.${cTribNac.slice(2, 4)}.${cTribNac.slice(4, 6)}`
+    : escapeHtml(cTribNac);
+  return cTribMun ? `${nac} / ${escapeHtml(cTribMun)}` : nac;
 }
 
 export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemplateInput): string {
@@ -134,6 +159,9 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
   const issqnAplicavel = Boolean(tribMun);
 
   const emitenteUf = prest.end?.UF;
+  // UF de referência para os campos de local que não têm UF própria no XML
+  // (prestação/incidência): usa a do prestador, senão a do tomador.
+  const ufRef = prest.end?.UF ?? toma?.end?.UF;
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -154,10 +182,10 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
   .doc { width: 100%; position: relative; border: 1pt solid #000; }
 
   /* CABEÇALHO — sombreado cinza 5% (item 2.2.3) */
-  .header { display: flex; align-items: stretch; background: #f2f2f2; }
-  .header .logo { width: 22%; padding: 5pt 6pt; display: flex; align-items: center; border-right: 0.5pt solid #000; }
+  .header { display: flex; align-items: stretch; background: #f2f2f2; border-bottom: 0.5pt solid #000; }
+  .header .logo { width: 22%; padding: 5pt 6pt; display: flex; align-items: center; }
   .header .titulo {
-    flex: 1; text-align: center; padding: 5pt; border-right: 0.5pt solid #000;
+    flex: 1; text-align: center; padding: 5pt;
     display: flex; flex-direction: column; justify-content: center;
   }
   .header .titulo .t1, .header .titulo .t2 { font-family: Arial, sans-serif; font-weight: bold; font-size: 9pt; }
@@ -177,20 +205,28 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
   .lbl-id { font-family: Arial, sans-serif; font-weight: bold; font-size: 7pt; text-transform: uppercase; display: block; margin-bottom: 1pt; }
   .val { font-size: 7pt; display: block; word-wrap: break-word; }
   .chave { font-size: 8pt; letter-spacing: 0.5pt; word-break: break-all; }
+  /* Chave no canhoto: fonte menor e sem espaçamento para caber em 1 linha. */
+  .chave-canhoto { font-size: 6.5pt; letter-spacing: 0; white-space: nowrap; }
 
   /* Sombreamento cinza claro 5% de densidade (item 2.2.3): títulos de
      bloco, campo "Emitente da NFS-e" e "Valor Líquido da NFS-e + IBS/CBS". */
   .sombra { background: #f2f2f2; }
 
-  /* Título de bloco: célula em destaque no início da 1ª linha */
+  /* Título de bloco: célula em destaque no início da 1ª linha.
+     border-top redundante com .bloco: o fundo cinza fica na mesma caixa
+     que a borda, então nunca cobre a linha divisória (bug de rasterização
+     do Chrome ao imprimir PDF, onde um fundo adjacente pode pintar por
+     cima de uma borda de 0,5pt do elemento vizinho). */
   .tt {
     font-family: Arial, sans-serif; font-weight: bold; font-size: 7pt; text-transform: uppercase;
     background: #f2f2f2; padding: 2.5pt 5pt; display: flex; align-items: center;
+    border-top: 0.5pt solid #000; margin-top: -0.5pt;
   }
   /* Título de bloco em barra cheia (blocos sem campos na linha do título) */
   .tt-full {
     font-family: Arial, sans-serif; font-weight: bold; font-size: 7pt; text-transform: uppercase;
     background: #f2f2f2; padding: 2.5pt 5pt;
+    border-top: 0.5pt solid #000; margin-top: -0.5pt;
   }
 
   /* DADOS DA NFS-e (QR à direita, sem linha vertical separadora — Anexo I) */
@@ -328,10 +364,10 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
           <div class="tt" style="flex:1">Serviço Prestado</div>
           ${campo(
             "Código de Tributação Nacional / Municipal",
-            ou(serv.cServ.cTribMun ? `${serv.cServ.cTribNac} / ${serv.cServ.cTribMun}` : serv.cServ.cTribNac)
+            formatCodTrib(serv.cServ.cTribNac, serv.cServ.cTribMun)
           )}
           ${campo("Código da NBS", ou(serv.cServ.cNBS))}
-          ${campo("Local da Prestação / Sigla UF / País", ou(infNFSe.xLocPrestacao))}
+          ${campo("Local da Prestação / Sigla UF / País", localCompleto(infNFSe.xLocPrestacao, ufRef))}
         </div>
         <div class="linha">
           <div class="c" style="flex:1"><span class="val">${ou(serv.cServ.xTribMun || serv.cServ.xTribNac)}</span></div>
@@ -350,7 +386,7 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
             ? `<div class="linha">
           <div class="tt" style="flex:1">Tributação Municipal (ISSQN)</div>
           ${campo("Tipo de Tributação do ISSQN", ou(codigos.tribISSQN(tribMun!.tribISSQN)))}
-          ${campo("Município / Sigla UF / País de Incidência do ISSQN", ou(infNFSe.xLocIncid), 2)}
+          ${campo("Município / Sigla UF / País de Incidência do ISSQN", localCompleto(infNFSe.xLocIncid, ufRef), 2)}
         </div>
         <div class="linha">
           ${campo("Regime Especial de Tributação do ISSQN", TRACO)}
@@ -394,7 +430,7 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
         <div class="linha">
           <div class="tt" style="flex:1">Tributação IBS / CBS</div>
           ${campo("CST / cClassTrib", ou(ibscbs ? `${ibscbs.CST} / ${ibscbs.cClassTrib}` : undefined))}
-          ${campo("Indicador de Operação / Código IBGE Incidência / Município Incidência / Sigla UF", ou(infNFSe.xLocIncid), 2)}
+          ${campo("Indicador de Operação / Código IBGE Incidência / Município Incidência / Sigla UF", localCompleto(infNFSe.xLocIncid, ufRef, ""), 2)}
         </div>
         <div class="linha">
           ${campo("Exclusões e Reduções da Base de Cálculo", TRACO)}
@@ -448,7 +484,7 @@ export function renderDanfseHtml({ nfse, qrCodeDataUrl, marcaDagua }: DanfseTemp
         <div class="linha canhoto">
           ${campoB("Data Cientificação", "&nbsp;")}
           ${campoB("Identificação e Assinatura", "&nbsp;")}
-          <div class="c" style="flex:2"><span class="lbl lbl-b">Nº NFS-e / Chave NFS-e</span><span class="val chave">${ou(infNFSe.nNFSe)} / ${ou(infNFSe.chaveAcesso)}</span></div>
+          <div class="c" style="flex:2"><span class="lbl lbl-b">Nº NFS-e / Chave NFS-e</span><span class="val">${ou(infNFSe.nNFSe)}</span><span class="val chave-canhoto">${ou(infNFSe.chaveAcesso)}</span></div>
         </div>
       </div>
     </div>

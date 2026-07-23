@@ -33,6 +33,15 @@
           <xNome>CARLOS TECNOLOGIA E CONTABILIDADE LTDA</xNome>
           <fone>12988887777</fone>
           <email>contato@exemplo.com.br</email>
+          <end>
+            <xLgr>Avenida Cassiano Ricardo</xLgr>
+            <nro>601</nro>
+            <xBairro>Jardim Aquarius</xBairro>
+            <cMun>3549904</cMun>
+            <xMun>São José dos Campos</xMun>
+            <UF>SP</UF>
+            <CEP>12246870</CEP>
+          </end>
         </prest>
         <toma>
           <CNPJ>11222333000144</CNPJ>

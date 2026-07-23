@@ -42,14 +42,18 @@ export function formatDataHoraCompleta(iso: string | undefined): string {
   if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return escapeHtml(iso);
-  return date.toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  // Formato DD/MM/AAAA hh:mm:ss (item 2.4.5), sem a vírgula que o
+  // toLocaleString insere entre data e hora.
+  return date
+    .toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+    .replace(",", "");
 }
 
 export function formatData(iso: string | undefined): string {
