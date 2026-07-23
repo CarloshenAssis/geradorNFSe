@@ -97,12 +97,15 @@ export async function gerarDanfse(
 
     return { generationId, signedUrl };
   } catch (err) {
-    const detalhe = err instanceof Error ? err.message : "erro_desconhecido";
+    const detalhe = err instanceof Error ? `${err.name}: ${err.message}` : "erro_desconhecido";
     await supabase.rpc("fail_generation", { p_generation_id: generationId, p_erro_detalhe: detalhe });
 
     if (err instanceof PdfRenderError) {
       throw new DanfseError(err.message, 500);
     }
-    throw new DanfseError("falha_ao_gerar_danfse", 500);
+    // Propaga a causa real (upload, RPC, QR Code, etc.) em vez de mascarar
+    // com uma mensagem genérica — facilita diagnosticar sem depender dos
+    // logs de runtime da Vercel.
+    throw new DanfseError(`falha_ao_gerar_danfse: ${detalhe}`, 500);
   }
 }

@@ -59,13 +59,18 @@ async function resolveLaunchOptions(): Promise<LaunchOptions> {
 }
 
 export async function renderHtmlToPdf(html: string): Promise<Buffer> {
-  const { executablePath, args, headless } = await resolveLaunchOptions();
-
-  const browser = await puppeteer.launch({
-    executablePath,
-    args,
-    headless,
-  });
+  // A resolução do executável (que baixa/descompacta o pack do Chromium em
+  // ambiente serverless) e o launch do navegador ficam DENTRO do try: se
+  // qualquer um falhar (pack incompatível, download indisponível,
+  // biblioteca de sistema ausente), o erro vira um PdfRenderError com a
+  // causa real — em vez de propagar como erro genérico sem diagnóstico.
+  let browser: Awaited<ReturnType<typeof puppeteer.launch>>;
+  try {
+    const { executablePath, args, headless } = await resolveLaunchOptions();
+    browser = await puppeteer.launch({ executablePath, args, headless });
+  } catch (err) {
+    throw new PdfRenderError(`Falha ao iniciar o Chromium: ${(err as Error).message}`);
+  }
 
   try {
     const page = await browser.newPage();
