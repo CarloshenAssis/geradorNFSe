@@ -1,5 +1,4 @@
 import "server-only";
-import { PDFParse } from "pdf-parse";
 import type { NfseParsed } from "@/lib/nfse/schema";
 import { formatMoeda } from "@/lib/nfse/sanitize";
 
@@ -22,6 +21,10 @@ export interface DivergenciaCampo {
 /** Extrai o texto do PDF de referência enviado pelo usuário; null se falhar. */
 async function extrairTextoPdf(pdfBuffer: Buffer): Promise<string | null> {
   try {
+    // Import dinâmico: assim como o exceljs, mantém as rotas que não
+    // fazem conferência (listar/criar lote) resilientes a uma eventual
+    // falha de bundling do pdf-parse em runtime serverless.
+    const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: pdfBuffer });
     const resultado = await parser.getText();
     await parser.destroy();

@@ -1,5 +1,4 @@
 import "server-only";
-import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { formatMoeda, escapeHtml } from "@/lib/nfse/sanitize";
 import { renderHtmlToPdf } from "@/lib/pdf/render";
@@ -45,6 +44,10 @@ function celula(valor: LinhaExport[keyof LinhaExport]): string {
 }
 
 export async function gerarXlsx(linhas: LinhaExport[]): Promise<Buffer> {
+  // Import dinâmico: mantém o carregamento do módulo (usado até por rotas
+  // que só listam/criam lotes) resiliente a uma eventual falha de bundling
+  // do exceljs em runtime serverless — só quebra quem realmente gera XLSX.
+  const { default: ExcelJS } = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Lote");
   sheet.addRow(COLUNAS.map((c) => c.titulo));
