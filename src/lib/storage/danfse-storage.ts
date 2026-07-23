@@ -38,8 +38,17 @@ export async function uploadPdf(path: string, pdf: Buffer): Promise<void> {
   if (error) throw new Error(`upload_pdf_falhou [path=${path}]: ${error.message}`);
 }
 
-export async function createSignedUrl(path: string): Promise<string> {
-  const { data, error } = await storage().createSignedUrl(path, env.danfseSignedUrlTtlSeconds);
+/**
+ * `downloadFilename`: nome sugerido para o download (via Content-Disposition
+ * do Supabase Storage) — sem isso o navegador usa o último segmento do path
+ * de storage ("output.pdf"), que não identifica a nota nenhuma.
+ */
+export async function createSignedUrl(path: string, downloadFilename?: string): Promise<string> {
+  const { data, error } = await storage().createSignedUrl(
+    path,
+    env.danfseSignedUrlTtlSeconds,
+    downloadFilename ? { download: downloadFilename } : undefined
+  );
   if (error || !data) throw error ?? new Error("falha_ao_gerar_signed_url");
   return data.signedUrl;
 }

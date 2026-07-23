@@ -12,7 +12,7 @@ const MESES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-function sanitizarSegmento(valor: string): string {
+export function sanitizarSegmento(valor: string): string {
   return valor
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "") // remove acentos (após normalize NFD)

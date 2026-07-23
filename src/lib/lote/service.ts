@@ -287,6 +287,26 @@ export async function processarProximoChunk(
     return { finalizado: false };
   }
 
+  // Claim atômico da finalização: como o poll do frontend roda a cada
+  // poucos segundos e a finalização (render de PDF do relatório, zip)
+  // pode demorar mais que isso, múltiplas chamadas concorrentes podiam
+  // ver "0 pendentes" ao mesmo tempo e rodar finalizarLote() em duplicata
+  // (exports repetidos). `finalizado_em` começa null e só é setado aqui;
+  // o UPDATE ... WHERE finalizado_em IS NULL serializa no Postgres —
+  // apenas uma chamada concorrente consegue reivindicar a finalização.
+  const { data: claim } = await supabase
+    .from("lote_processamento")
+    .update({ finalizado_em: new Date().toISOString() })
+    .eq("id", loteId)
+    .is("finalizado_em", null)
+    .select("id")
+    .maybeSingle();
+
+  if (!claim) {
+    // Outra chamada já reivindicou (ou já concluiu) a finalização.
+    return { finalizado: true };
+  }
+
   try {
     await finalizarLote(supabase, ctx, loteId);
   } catch (err) {

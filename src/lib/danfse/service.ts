@@ -7,8 +7,18 @@ import { renderDanfseHtml } from "@/lib/pdf/template";
 import { gerarQrCodeConsulta } from "@/lib/pdf/qrcode";
 import { renderHtmlToPdf, PdfRenderError } from "@/lib/pdf/render";
 import { buildDanfsePath, uploadXml, uploadPdf, createSignedUrl } from "@/lib/storage/danfse-storage";
+import { sanitizarSegmento } from "@/lib/lote/organizer";
 import { env } from "@/lib/env";
 import type { SessionContext } from "@/lib/auth/context";
+import type { NfseParsed } from "@/lib/nfse/schema";
+
+/** Nome de download amigável: número da NFS-e + nome do prestador (ex: "202600001234_EMPRESA_LTDA.pdf"). */
+function nomeArquivoDanfse(nfse: NfseParsed): string {
+  const infNFSe = nfse.NFSe.infNFSe;
+  const numero = sanitizarSegmento(infNFSe.nNFSe || "SN");
+  const prestador = sanitizarSegmento(infNFSe.DPS.infDPS.prest.xNome || "PRESTADOR");
+  return `${numero}_${prestador}.pdf`;
+}
 
 export class DanfseError extends Error {
   constructor(
@@ -93,7 +103,7 @@ export async function gerarDanfse(
     await uploadPdf(pdfPath, pdf);
     await supabase.rpc("complete_generation", { p_generation_id: generationId, p_pdf_storage_ref: pdfPath });
 
-    const signedUrl = await createSignedUrl(pdfPath);
+    const signedUrl = await createSignedUrl(pdfPath, nomeArquivoDanfse(nfse));
 
     return { generationId, signedUrl };
   } catch (err) {
