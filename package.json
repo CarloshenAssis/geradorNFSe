@@ -15,7 +15,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@sparticuz/chromium-min": "^149.0.0",
+    "@sparticuz/chromium": "^131.0.1",
     "@supabase/ssr": "0.5.2",
     "@supabase/supabase-js": "2.45.4",
     "exceljs": "^4.4.0",

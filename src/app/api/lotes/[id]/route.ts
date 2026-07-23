@@ -69,7 +69,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
   const exportsComUrl = await Promise.all(
     (exports ?? []).map(async (exp) => ({
       tipo: exp.tipo,
-      url: await createLoteSignedUrl(supabase, exp.storage_ref).catch(() => null),
+      url: await createLoteSignedUrl(exp.storage_ref).catch(() => null),
     }))
   );
 
@@ -82,7 +82,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
       status: item.status,
       erroDetalhe: item.erro_detalhe,
       pdfUrl: item.danfse_pdf_storage_ref
-        ? await createLoteSignedUrl(supabase, item.danfse_pdf_storage_ref).catch(() => null)
+        ? await createLoteSignedUrl(item.danfse_pdf_storage_ref).catch(() => null)
         : null,
     }))
   );

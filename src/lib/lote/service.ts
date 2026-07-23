@@ -62,7 +62,7 @@ export async function criarLote(
   const expiraEm = new Date(Date.now() + env.loteRetencaoDias * 86_400_000).toISOString();
   const origemPath = buildOrigemPath(ctx.escritorioId, loteId);
 
-  await uploadLoteArquivo(supabase, origemPath, zipBuffer, "application/zip");
+  await uploadLoteArquivo(origemPath, zipBuffer, "application/zip");
 
   const { error: insertLoteError } = await supabase.from("lote_processamento").insert({
     id: loteId,
@@ -92,14 +92,14 @@ export async function criarLote(
     const arquivo = extracao.arquivos[i] as ArquivoExtraido;
     const itemId = (itemRows[i] as { id: string }).id;
     const xmlPath = buildItemPath(ctx.escritorioId, loteId, itemId, "input.xml");
-    await uploadLoteArquivo(supabase, xmlPath, arquivo.conteudo, "application/xml");
+    await uploadLoteArquivo(xmlPath, arquivo.conteudo, "application/xml");
 
     const chaveBase = arquivo.nome.toLowerCase().replace(/\.[^.]+$/, "");
     const pdfRef = extracao.pdfsReferencia.get(chaveBase);
     let pdfRefPath: string | null = null;
     if (pdfRef) {
       pdfRefPath = buildItemPath(ctx.escritorioId, loteId, itemId, "referencia.pdf");
-      await uploadLoteArquivo(supabase, pdfRefPath, pdfRef.conteudo, "application/pdf");
+      await uploadLoteArquivo(pdfRefPath, pdfRef.conteudo, "application/pdf");
     }
 
     await supabase
@@ -125,7 +125,7 @@ async function processarItem(
     throw new Error("item_sem_xml_armazenado");
   }
 
-  const xmlBuffer = await downloadLoteArquivo(supabase, item.xml_storage_ref);
+  const xmlBuffer = await downloadLoteArquivo(item.xml_storage_ref);
   const xml = xmlBuffer.toString("utf-8");
 
   let raw: unknown;
@@ -170,11 +170,11 @@ async function processarItem(
     const pdf = await renderHtmlToPdf(html);
 
     const pdfPath = buildItemPath(ctx.escritorioId, item.lote_id, item.id, "danfse.pdf");
-    await uploadLoteArquivo(supabase, pdfPath, pdf, "application/pdf");
+    await uploadLoteArquivo(pdfPath, pdf, "application/pdf");
     await supabase.rpc("complete_generation", { p_generation_id: generationId, p_pdf_storage_ref: pdfPath });
 
     if (item.pdf_referencia_storage_ref) {
-      const pdfRefBuffer = await downloadLoteArquivo(supabase, item.pdf_referencia_storage_ref);
+      const pdfRefBuffer = await downloadLoteArquivo(item.pdf_referencia_storage_ref);
       const divergencias = await conferirXmlXPdf(nfse, pdfRefBuffer);
       if (divergencias.length > 0) {
         await supabase.from("conferencia_divergencia").insert(
@@ -315,7 +315,7 @@ async function finalizarLote(supabase: SupabaseClient<Database>, ctx: SessionCon
 
     if (item.status === "processado" && item.xml_storage_ref) {
       try {
-        const xmlBuffer = await downloadLoteArquivo(supabase, item.xml_storage_ref);
+        const xmlBuffer = await downloadLoteArquivo(item.xml_storage_ref);
         const nfse = validateNfse(parseNfseXml(xmlBuffer.toString("utf-8")));
         const infNFSe = nfse.NFSe.infNFSe;
         const infDPS = infNFSe.DPS.infDPS;
@@ -339,7 +339,7 @@ async function finalizarLote(supabase: SupabaseClient<Database>, ctx: SessionCon
 
       if (item.danfse_pdf_storage_ref) {
         try {
-          const pdfBuffer = await downloadLoteArquivo(supabase, item.danfse_pdf_storage_ref);
+          const pdfBuffer = await downloadLoteArquivo(item.danfse_pdf_storage_ref);
           const pasta = item.pasta_padronizada ?? "Sem_Pasta";
           const nomeArquivo = item.nome_arquivo_padronizado ?? `${item.id}.pdf`;
           arquivosParaZip.push({ path: `${pasta}/${nomeArquivo}`, conteudo: pdfBuffer });
@@ -382,11 +382,11 @@ async function finalizarLote(supabase: SupabaseClient<Database>, ctx: SessionCon
   const zipPath = buildExportPath(ctx.escritorioId, loteId, "consolidado.zip");
 
   await Promise.all([
-    uploadLoteArquivo(supabase, xlsxPath, xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-    uploadLoteArquivo(supabase, csvPath, csv, "text/csv"),
-    uploadLoteArquivo(supabase, txtPath, txt, "text/plain"),
-    uploadLoteArquivo(supabase, relatorioPath, relatorioPdf, "application/pdf"),
-    uploadLoteArquivo(supabase, zipPath, zipConsolidado, "application/zip"),
+    uploadLoteArquivo(xlsxPath, xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    uploadLoteArquivo(csvPath, csv, "text/csv"),
+    uploadLoteArquivo(txtPath, txt, "text/plain"),
+    uploadLoteArquivo(relatorioPath, relatorioPdf, "application/pdf"),
+    uploadLoteArquivo(zipPath, zipConsolidado, "application/zip"),
   ]);
 
   await supabase.from("export_gerado").insert([

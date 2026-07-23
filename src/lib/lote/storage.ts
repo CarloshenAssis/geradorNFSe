@@ -1,7 +1,6 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
-import type { Database } from "@/lib/supabase/database.types";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
  * Storage do módulo de lote (item 3.2 do MD complementar): bucket privado
@@ -12,7 +11,18 @@ import type { Database } from "@/lib/supabase/database.types";
  *   lotes-files/{escritorio_id}/{lote_id}/itens/{lote_item_id}/danfse.pdf
  *   lotes-files/{escritorio_id}/{lote_id}/itens/{lote_item_id}/referencia.pdf
  *   lotes-files/{escritorio_id}/{lote_id}/exports/{arquivo}
+ *
+ * Todas as operações de storage usam o client service_role (não o client
+ * SSR do usuário): o processamento de lote é server-side/background (o job
+ * de cron de retomada nem tem sessão de usuário para usar), e o isolamento
+ * de tenant é garantido pelo prefixo {escritorio_id} no path — validado a
+ * partir da sessão autenticada antes de chegar aqui. Isso evita qualquer
+ * fragilidade do client SSR ao fazer upload em runtime serverless.
  */
+
+function storage() {
+  return createSupabaseServiceClient().storage.from(env.loteStorageBucket);
+}
 
 export function buildOrigemPath(escritorioId: string, loteId: string): string {
   return `${escritorioId}/${loteId}/origem.zip`;
@@ -31,46 +41,25 @@ export function buildExportPath(escritorioId: string, loteId: string, filename: 
   return `${escritorioId}/${loteId}/exports/${filename}`;
 }
 
-export async function uploadLoteArquivo(
-  supabase: SupabaseClient<Database>,
-  path: string,
-  conteudo: Buffer | Blob,
-  contentType: string
-): Promise<void> {
-  // Normaliza Buffer do Node para Blob: o cliente de storage do Supabase
-  // lida com Blob de forma consistente no runtime serverless; um Buffer cru
-  // pode, em algumas versões, gerar requisição malformada.
+export async function uploadLoteArquivo(path: string, conteudo: Buffer | Blob, contentType: string): Promise<void> {
   const corpo = conteudo instanceof Blob ? conteudo : new Blob([new Uint8Array(conteudo)], { type: contentType });
   try {
-    const { error } = await supabase.storage
-      .from(env.loteStorageBucket)
-      .upload(path, corpo, { contentType, upsert: true });
+    const { error } = await storage().upload(path, corpo, { contentType, upsert: true });
     if (error) throw error;
   } catch (err) {
-    // O cliente de storage do Supabase lança SyntaxError quando a resposta
-    // é HTML (ex: página de erro de gateway) em vez de JSON. Reetiqueta com
-    // o bucket/caminho para o erro apontar exatamente onde falhou.
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`upload_storage_falhou [bucket=${env.loteStorageBucket} path=${path}]: ${msg}`);
   }
 }
 
-export async function createLoteSignedUrl(
-  supabase: SupabaseClient<Database>,
-  path: string
-): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from(env.loteStorageBucket)
-    .createSignedUrl(path, env.loteSignedUrlTtlSeconds);
+export async function createLoteSignedUrl(path: string): Promise<string> {
+  const { data, error } = await storage().createSignedUrl(path, env.loteSignedUrlTtlSeconds);
   if (error || !data) throw error ?? new Error("falha_ao_gerar_signed_url");
   return data.signedUrl;
 }
 
-export async function downloadLoteArquivo(
-  supabase: SupabaseClient<Database>,
-  path: string
-): Promise<Buffer> {
-  const { data, error } = await supabase.storage.from(env.loteStorageBucket).download(path);
+export async function downloadLoteArquivo(path: string): Promise<Buffer> {
+  const { data, error } = await storage().download(path);
   if (error || !data) throw error ?? new Error("falha_ao_baixar_arquivo_do_lote");
   return Buffer.from(await data.arrayBuffer());
 }

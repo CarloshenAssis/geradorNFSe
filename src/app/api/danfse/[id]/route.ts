@@ -36,7 +36,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     });
   }
 
-  const signedUrl = await createSignedUrl(supabase, generation.pdf_storage_ref);
+  const signedUrl = await createSignedUrl(generation.pdf_storage_ref);
 
   return NextResponse.json({
     id: generation.id,

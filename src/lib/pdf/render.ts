@@ -30,16 +30,20 @@ interface LaunchOptions {
 
 async function resolveLaunchOptions(): Promise<LaunchOptions> {
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-    const packUrl = process.env.CHROMIUM_REMOTE_PACK_URL;
-    if (!packUrl) {
-      throw new PdfRenderError(
-        "CHROMIUM_REMOTE_PACK_URL não configurado — necessário para o Chromium empacotado em ambiente serverless"
-      );
-    }
-    const chromiumModule = await import("@sparticuz/chromium-min");
+    // Pacote COMPLETO @sparticuz/chromium: o binário do Chromium vem
+    // embutido (brotli) e é extraído em /tmp no runtime — sem depender de
+    // nenhuma URL externa (CHROMIUM_REMOTE_PACK_URL) que possa 404/403 ou
+    // ficar dessincronizada da versão do npm. Isso elimina a fragilidade
+    // que impedia a geração de PDF em produção.
+    const chromiumModule = await import("@sparticuz/chromium");
     const chromium = chromiumModule.default;
+
+    // Sempre o binário embutido (sem ler CHROMIUM_REMOTE_PACK_URL): a
+    // versão do @sparticuz/chromium (131) é pareada com o Chrome que o
+    // puppeteer-core espera (131.0.6778), então não há URL externa nem
+    // risco de 404/403/versão dessincronizada.
     return {
-      executablePath: await chromium.executablePath(packUrl),
+      executablePath: await chromium.executablePath(),
       args: chromium.args,
       headless: "shell",
     };

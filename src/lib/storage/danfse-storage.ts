@@ -1,53 +1,45 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
-import type { Database } from "@/lib/supabase/database.types";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
  * Storage privado com signed URL de TTL curto (item 1.5 / 2.3 do MD).
- * Path sempre prefixado por escritorio_id — é o que a policy de RLS de
- * storage.objects usa para isolar tenants (ver 0004_storage.sql).
+ * Path sempre prefixado por escritorio_id.
+ *
+ * Todas as operações usam o client service_role (não o SSR do usuário): a
+ * geração de DANFSe é server-side, o isolamento de tenant é garantido pelo
+ * prefixo {escritorio_id} no path (validado a partir da sessão autenticada
+ * antes de chegar aqui), e o acesso do usuário é sempre via signed URL
+ * gerada no servidor. Isso evita qualquer fragilidade do client SSR ao
+ * fazer upload em runtime serverless (resposta HTML -> erro de JSON).
  */
+
+function storage() {
+  return createSupabaseServiceClient().storage.from(env.danfseStorageBucket);
+}
 
 export function buildDanfsePath(escritorioId: string, generationId: string, filename: "input.xml" | "output.pdf"): string {
   return `${escritorioId}/${generationId}/${filename}`;
 }
 
-export async function uploadXml(
-  supabase: SupabaseClient<Database>,
-  path: string,
-  xml: string
-): Promise<void> {
-  const { error } = await supabase.storage
-    .from(env.danfseStorageBucket)
-    .upload(path, new Blob([xml], { type: "application/xml" }), {
-      contentType: "application/xml",
-      upsert: false,
-    });
-  if (error) throw error;
+export async function uploadXml(path: string, xml: string): Promise<void> {
+  const { error } = await storage().upload(path, new Blob([xml], { type: "application/xml" }), {
+    contentType: "application/xml",
+    upsert: true,
+  });
+  if (error) throw new Error(`upload_xml_falhou [path=${path}]: ${error.message}`);
 }
 
-export async function uploadPdf(
-  supabase: SupabaseClient<Database>,
-  path: string,
-  pdf: Buffer
-): Promise<void> {
-  // Blob em vez de Buffer cru: mesma normalização do uploadXml, para o
-  // cliente de storage montar a requisição de forma consistente no
-  // runtime serverless da Vercel.
-  const { error } = await supabase.storage
-    .from(env.danfseStorageBucket)
-    .upload(path, new Blob([new Uint8Array(pdf)], { type: "application/pdf" }), {
-      contentType: "application/pdf",
-      upsert: false,
-    });
-  if (error) throw error;
+export async function uploadPdf(path: string, pdf: Buffer): Promise<void> {
+  const { error } = await storage().upload(path, new Blob([new Uint8Array(pdf)], { type: "application/pdf" }), {
+    contentType: "application/pdf",
+    upsert: true,
+  });
+  if (error) throw new Error(`upload_pdf_falhou [path=${path}]: ${error.message}`);
 }
 
-export async function createSignedUrl(supabase: SupabaseClient<Database>, path: string): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from(env.danfseStorageBucket)
-    .createSignedUrl(path, env.danfseSignedUrlTtlSeconds);
+export async function createSignedUrl(path: string): Promise<string> {
+  const { data, error } = await storage().createSignedUrl(path, env.danfseSignedUrlTtlSeconds);
   if (error || !data) throw error ?? new Error("falha_ao_gerar_signed_url");
   return data.signedUrl;
 }

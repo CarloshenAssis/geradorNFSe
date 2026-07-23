@@ -84,16 +84,16 @@ export async function gerarDanfse(
   }
 
   try {
-    await uploadXml(supabase, xmlPath, xml);
+    await uploadXml(xmlPath, xml);
 
     const qrCodeDataUrl = await gerarQrCodeConsulta(nfse.NFSe.infNFSe.chaveAcesso);
     const html = renderDanfseHtml({ nfse, qrCodeDataUrl });
     const pdf = await renderHtmlToPdf(html);
 
-    await uploadPdf(supabase, pdfPath, pdf);
+    await uploadPdf(pdfPath, pdf);
     await supabase.rpc("complete_generation", { p_generation_id: generationId, p_pdf_storage_ref: pdfPath });
 
-    const signedUrl = await createSignedUrl(supabase, pdfPath);
+    const signedUrl = await createSignedUrl(pdfPath);
 
     return { generationId, signedUrl };
   } catch (err) {
